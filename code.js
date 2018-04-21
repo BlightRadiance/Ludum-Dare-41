@@ -212,8 +212,8 @@ function getTime() {
 }
 
 function render() {
-  console.log("stage.timeMultiplier: " + stage.timeMultiplier);
-  console.log("stage.threat: " + stage.threat);
+  //console.log("stage.timeMultiplier: " + stage.timeMultiplier);
+  //console.log("stage.threat: " + stage.threat);
 
   var now = getTime();
   var dt = now - oldTime;
@@ -231,7 +231,10 @@ function render() {
     updatePlayerPosition(dt, stage.time, now);
     field.circleField.scale.x = 0.3 + stage.progress * 1.3;
     field.circleField.scale.y = 0.3 + stage.progress * 1.3;
-
+    field.circleField.material.color.g = stage.threat / 40 + 0.2;
+    field.circleField.material.color.b = stage.threat / 40 + 0.2;
+    field.circleField.material.color.r = stage.threat / 40 + 0.2;
+    //console.log("field.circleField.material.color.r: " + field.circleField.material.color.r);
     updateClicks();
 
     stage.finishTime = now;
@@ -267,11 +270,11 @@ function updateClicks() {
     var circleH = field.circleField.scale.y * frustumSize / 4;
   if (mouseX < circleW && mouseX > -circleW
       && mouseY < circleH && mouseY > -circleH) {
-      console.log("click inside");
+      //console.log("click inside");
       stage.timeMultiplier += stage.timePerClick;
       stage.threat += stage.threatPerClick;
     } else {
-      console.log("click outside");
+      //console.log("click outside");
       stage.timeMultiplier -= 1.2 * stage.timePerClick;
       stage.threat -= stage.threatPerClick;
       stage.threat = Math.max(stage.threat, 0.0);
