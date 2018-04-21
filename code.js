@@ -1,7 +1,8 @@
-if (typeof require === 'function')
-{
+if (typeof require === 'function') {
   var THREE = require('three');
 }
+
+var xAxis = new THREE.Vector2(1.0, 0.0);
 
 var camera, scene, renderer;
 var mouseRealX = 0, mouseRealY = 0;
@@ -18,6 +19,11 @@ var currentAspectX;
 var currentAspectY;
 
 var pointer;
+var player = {};
+
+var oldTime = Date.now();
+
+var paused = false;
 
 init();
 animate();
@@ -36,22 +42,29 @@ function init() {
   document.addEventListener('mousemove', onDocumentMouseMove, false);
   document.addEventListener('touchstart', onDocumentTouchStart, false);
   document.addEventListener('touchmove', onDocumentTouchMove, false);
+  document.addEventListener("keydown", onDocumentKeyDown, false);
   window.addEventListener('resize', onWindowResize, false);
 
-  setupPointer();
   setupPlayingField();
-  setupPayerShape();
+  setupPointer();
   setupHelpers();
+  setupPayer();
 
+  updateScreenSpacePointerPosition();
   onWindowResize();
 }
+
+function onDocumentKeyDown(event) {
+  if (event.key == " ") {
+    paused = !paused;
+  }
+};
 
 function setupPointer() {
   var geometryPointer = new THREE.CircleGeometry(frustumSize / 20, 32);
   var materialPointer = new THREE.MeshBasicMaterial({ color: 0x888888 });
   pointer = new THREE.Mesh(geometryPointer, materialPointer);
   scene.add(pointer);
-
 }
 
 function setupPlayingField() {
@@ -59,11 +72,35 @@ function setupPlayingField() {
   var materialField = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
   var circleField = new THREE.Mesh(geometryField, materialField);
   scene.add(circleField);
-
 }
 
-function setupPayerShape() {
+function setupPayer() {
+  var playerShape = new THREE.Shape();
+  var pW = 80;
+  var pH = 80;
+  playerShape.moveTo(pW * 0.7, -pH);
+  playerShape.lineTo(pW * 1.2, -pH + 10);
+  playerShape.lineTo(pW, pH);
+  playerShape.lineTo(-pW, pH);
+  playerShape.lineTo(-pW * 1.2, -pH  + 10);
+  playerShape.lineTo(-pW * 0.7, -pH-2);
+  playerShape.splineThru([
+    new THREE.Vector2(-pW * 0.7, -pH),
+    new THREE.Vector2(-pW / 2.5, -pH / 1.8),
+    new THREE.Vector2(0, -pH / 2),
+    new THREE.Vector2(pW / 2.5, -pH / 1.8),
+    new THREE.Vector2(pW * 0.7, -pH)
+  ]);
 
+  var playerGeometry = new THREE.ShapeGeometry(playerShape);
+  player.shape = new THREE.Mesh(playerGeometry,
+    new THREE.MeshBasicMaterial({ color: 0x00000 }));
+
+  scene.add(player.shape);
+
+  player.angle = Math.PI / 2.0;
+  player.velocity = 0.0;
+  player.acceleration = 0.0;
 }
 
 function setupHelpers() {
@@ -84,11 +121,52 @@ function animate() {
 }
 
 function render() {
-  var time = Date.now();
+  var now = Date.now();
+  var dt = (now - oldTime) / 1000;
+  oldTime = now;
 
   pointer.position.x = mouseX;
-  pointer.position.y = -mouseY;
+  pointer.position.y = mouseY;
 
+  if (!paused) {
+    updatePlayerPosition(dt);
+    updateHelpers();
+  }
+
+  renderer.render(scene, camera);
+}
+
+function updatePlayerPosition(dt) {
+  var maxVelocity = 4 * Math.PI;
+  var pointerPosition = new THREE.Vector2(mouseX, mouseY);
+  pointerPosition = pointerPosition.normalize();
+  targetAngle = Math.atan2(pointerPosition.y, pointerPosition.x);
+  var diff = Math.atan2(Math.sin(targetAngle-player.angle), Math.cos(targetAngle-player.angle));
+
+  // Calculate velocity
+  if (diff < 0) {
+    if (diff > -0.1) {
+      diff = -Math.pow(diff, 2);
+    } else {
+      diff = THREE.Math.clamp(-Math.pow(diff - 1, 4), -maxVelocity, -maxVelocity / 1000);
+    } 
+  } else {
+    if (diff < 0.1) {
+      diff = Math.pow(diff, 2);
+    } else {
+      diff = THREE.Math.clamp(Math.pow(diff + 1, 4), maxVelocity / 1000, maxVelocity); 
+    }
+  }
+  player.velocity = diff;
+
+  // Calculate position and rotation
+  player.angle += player.velocity * dt;
+  player.shape.position.x = frustumHalfSize * Math.cos(player.angle);
+  player.shape.position.y = frustumHalfSize * Math.sin(player.angle);
+  player.shape.rotation.z = player.angle - Math.PI / 2;
+}
+
+function updateHelpers() {
   r.position.x = frustumHalfSize;
   r.position.y = frustumHalfSize;
 
@@ -100,8 +178,6 @@ function render() {
 
   y.position.x = frustumHalfSize;
   y.position.y = -frustumHalfSize;
-
-  renderer.render(scene, camera);
 }
 
 function onWindowResize() {
@@ -152,7 +228,10 @@ function onDocumentTouchMove(event) {
 }
 
 function updateScreenSpacePointerPosition() {
-  console.log("Pointer: x = " + mouseRealX + "; y = " + mouseRealY);
   mouseX = mouseRealX * frustumSize / window.innerWidth * currentAspectX;
-  mouseY = mouseRealY * frustumSize / window.innerHeight * currentAspectY;
+  mouseY = -mouseRealY * frustumSize / window.innerHeight * currentAspectY;
+
+  if (mouseX === 0.0 && mouseY == 0.0) {
+    mouseX = 0.01;
+  }
 }
