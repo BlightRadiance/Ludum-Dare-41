@@ -18,6 +18,7 @@ var r, g, b, y;
 var currentAspectX;
 var currentAspectY;
 
+var danger = {};
 var player = {};
 var field = {};
 var controls = {};
@@ -57,14 +58,17 @@ function init() {
   document.addEventListener("keyup", onDocumentKeyUp, false);
   window.addEventListener('resize', onWindowResize, false);
 
+  stage.sectorCount = 12;
+
+  setupDanger();
   setupPlayingField();
   setupPayer();
 
+  resetState();
+  
   updateScreenSpacePointerPosition();
   onWindowResize();
   clearControls();
-
-  resetState();
 }
 
 function resetState() {
@@ -81,7 +85,7 @@ function resetState() {
   field.circleField.material.color.setHex(stage.color);
 
   effect.uniforms['dimm'].value = 1.0;
-  effect.uniforms['amount'].value = 0.002;
+  effect.uniforms['amount'].value = 0.0;
 
   player.gun.scale.x = 1.0;
   player.gun.scale.y = 1.0;
@@ -149,6 +153,41 @@ function setupPayer() {
   player.velocity = 0.0;
 }
 
+function setupDanger() {
+  danger.sectorsShapes = [];
+  danger.sectorsRanges = [];
+  var currentAngle = 0;
+  var angleStep = 2 * Math.PI / stage.sectorCount;
+  for (i = 0; i < stage.sectorCount; i++) {
+    var color;
+    var range = {};
+    if (i % 3 === 1) {
+      color = new THREE.Color(0xFF0000);
+    } else if (i % 3 == 2) {
+      color = new THREE.Color(0x00FF00);
+    } else {
+      color = new THREE.Color(0x0000FF);
+    }
+    var shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    range.from = currentAngle;
+    var dir = new THREE.Vector2(Math.cos(currentAngle), Math.sin(currentAngle));
+    dir = dir.normalize();
+    var howFar = 10000;
+    shape.lineTo(dir.x * howFar, dir.y * howFar);
+    currentAngle += angleStep;
+    range.to = currentAngle;
+    var dir = new THREE.Vector2(Math.cos(currentAngle), Math.sin(currentAngle));
+    dir = dir.normalize();
+    shape.lineTo(dir.x * howFar, dir.y * howFar);
+    danger.sectorsShapes.push(new THREE.Mesh(
+      new THREE.ShapeGeometry(shape),
+      new THREE.MeshBasicMaterial({ color: color })));
+    danger.sectorsRanges.push(range);
+    scene.add(danger.sectorsShapes[i]);
+  }
+}
+
 function animate() {
   requestAnimationFrame(animate);
   render();
@@ -169,7 +208,7 @@ function render() {
   }
   if (!stage.endGame && !stage.pause) {
     stage.progress = stage.time / stage.endTime;
-    updatePlayerPosition(dt, now);
+    updatePlayerPosition(dt, stage.time);
     field.circleField.scale.x = 0.3 + stage.progress;
     field.circleField.scale.y = 0.3 + stage.progress;
     endTime = now;
@@ -180,7 +219,11 @@ function render() {
     field.circleField.scale.x = Math.sin(stage.time * 3) * 0.1 + 1.0 + now - endTime;
     field.circleField.scale.y = Math.cos(stage.time * 3 + Math.PI / 4) * 0.1 + 1.0 + now - endTime;
   }
-  composer.render();
+  if (stage.state > 1) {
+    composer.render();
+  } else {
+    renderer.render(scene, camera);
+  }
 }
 
 function updateState() {
@@ -190,6 +233,7 @@ function updateState() {
     stage.state = 2;
   } else if (stage.time >= stage.endTime && !stage.endGame) {
     field.circleField.material.color.setHex(0xFFFFFFF);
+    stage.state = 3;
     stage.endGame = true;
     effect.uniforms['dimm'].value = 1.0;  
     field.circleField.scale.x = 0.1;
