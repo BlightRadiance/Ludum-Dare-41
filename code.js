@@ -46,9 +46,8 @@ function init() {
   window.addEventListener('resize', onWindowResize, false);
 
   setupPlayingField();
-  setupPointer();
-  setupHelpers();
   setupPayer();
+  setupPointer();
 
   updateScreenSpacePointerPosition();
   onWindowResize();
@@ -61,8 +60,8 @@ function onDocumentKeyDown(event) {
 };
 
 function setupPointer() {
-  var geometryPointer = new THREE.CircleGeometry(frustumSize / 20, 32);
-  var materialPointer = new THREE.MeshBasicMaterial({ color: 0x888888 });
+  var geometryPointer = new THREE.CircleGeometry(frustumSize / 50, 32);
+  var materialPointer = new THREE.MeshBasicMaterial({ color: 0x000000 });
   pointer = new THREE.Mesh(geometryPointer, materialPointer);
   scene.add(pointer);
 }
@@ -103,18 +102,6 @@ function setupPayer() {
   player.acceleration = 0.0;
 }
 
-function setupHelpers() {
-  var geometryHelper = new THREE.CircleGeometry(frustumSize / 10, 32);
-  r = new THREE.Mesh(geometryHelper, new THREE.MeshBasicMaterial({ color: 0xFF0000 }));
-  g = new THREE.Mesh(geometryHelper, new THREE.MeshBasicMaterial({ color: 0x00FF00 }));
-  b = new THREE.Mesh(geometryHelper, new THREE.MeshBasicMaterial({ color: 0x0000FF }));
-  y = new THREE.Mesh(geometryHelper, new THREE.MeshBasicMaterial({ color: 0x00FFFF }));
-  scene.add(r);
-  scene.add(g);
-  scene.add(b);
-  scene.add(y);
-}
-
 function animate() {
   requestAnimationFrame(animate);
   render();
@@ -130,7 +117,6 @@ function render() {
 
   if (!paused) {
     updatePlayerPosition(dt);
-    updateHelpers();
   }
 
   renderer.render(scene, camera);
@@ -145,13 +131,13 @@ function updatePlayerPosition(dt) {
 
   // Calculate velocity
   if (diff < 0) {
-    if (diff > -0.1) {
+    if (diff > -0.01) {
       diff = -Math.pow(diff, 2);
     } else {
       diff = THREE.Math.clamp(-Math.pow(diff - 1, 4), -maxVelocity, -maxVelocity / 1000);
     } 
   } else {
-    if (diff < 0.1) {
+    if (diff < 0.01) {
       diff = Math.pow(diff, 2);
     } else {
       diff = THREE.Math.clamp(Math.pow(diff + 1, 4), maxVelocity / 1000, maxVelocity); 
@@ -164,20 +150,6 @@ function updatePlayerPosition(dt) {
   player.shape.position.x = frustumHalfSize * Math.cos(player.angle);
   player.shape.position.y = frustumHalfSize * Math.sin(player.angle);
   player.shape.rotation.z = player.angle - Math.PI / 2;
-}
-
-function updateHelpers() {
-  r.position.x = frustumHalfSize;
-  r.position.y = frustumHalfSize;
-
-  g.position.x = -frustumHalfSize;
-  g.position.y = frustumHalfSize;
-
-  b.position.x = -frustumHalfSize;
-  b.position.y = -frustumHalfSize;
-
-  y.position.x = frustumHalfSize;
-  y.position.y = -frustumHalfSize;
 }
 
 function onWindowResize() {
