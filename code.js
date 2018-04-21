@@ -23,7 +23,7 @@ var player = {};
 
 var oldTime = Date.now();
 
-var paused = false;
+var controls = {};
 
 init();
 animate();
@@ -43,6 +43,7 @@ function init() {
   document.addEventListener('touchstart', onDocumentTouchStart, false);
   document.addEventListener('touchmove', onDocumentTouchMove, false);
   document.addEventListener("keydown", onDocumentKeyDown, false);
+  document.addEventListener("keyup", onDocumentKeyUp, false);
   window.addEventListener('resize', onWindowResize, false);
 
   setupPlayingField();
@@ -51,12 +52,32 @@ function init() {
 
   updateScreenSpacePointerPosition();
   onWindowResize();
+  clearControls();
+}
+
+function clearControls() {
+  controls.left = false;
+  controls.right = false;
+  controls.pause = false;
+}
+
+function onDocumentKeyUp(event) {
+  if (event.key == "ArrowLeft" || event.code == "KeyA") {
+    controls.right = false;
+  } else if (event.key == "ArrowRight" || event.code == "KeyD") {
+    controls.left = false;
+  }
 }
 
 function onDocumentKeyDown(event) {
   if (event.key == " ") {
-    paused = !paused;
+    controls.pause = !controls.pause;
+  } else if (event.key == "ArrowLeft" || event.code == "KeyA") {
+    controls.right = true;
+  } else if (event.key == "ArrowRight" || event.code == "KeyD") {
+    controls.left = true;
   }
+  console.log(event.code);
 };
 
 function setupPointer() {
@@ -95,7 +116,7 @@ function setupPayer() {
 
   scene.add(player.gun);
 
-  player.angle = Math.PI / 2.0;
+  player.angle = 3.0 * Math.PI / 2.0;
   player.velocity = 0.0;
 }
 
@@ -112,7 +133,7 @@ function render() {
   pointer.position.x = mouseX;
   pointer.position.y = mouseY;
 
-  if (!paused) {
+  if (!controls.pause) {
     updatePlayerPosition(dt, now);
   }
 
@@ -120,28 +141,28 @@ function render() {
 }
 
 function updatePlayerPosition(dt, time) {
-  var maxVelocity = 4 * Math.PI;
-  var pointerPosition = new THREE.Vector2(mouseX, mouseY);
-  pointerPosition = pointerPosition.normalize();
-  targetAngle = Math.atan2(pointerPosition.y, pointerPosition.x);
-  var diff = Math.atan2(Math.sin(targetAngle - player.angle), Math.cos(targetAngle - player.angle));
+  var maxV = 2 * Math.PI;
+  var maxA = Math.PI;
 
   // Calculate velocity
-  if (diff < 0) {
-    if (diff > -0.01) {
-      diff = -Math.pow(diff, 2);
-    } else {
-      diff = THREE.Math.clamp(-Math.pow(diff - 1, 4), -maxVelocity, -maxVelocity / 1000);
+  var slowDownFactor = 1 + dt * 10;
+  if (controls.right && !controls.left) {
+    if (player.velocity > 0) {
+      player.velocity /= slowDownFactor;
     }
+    player.a = -maxA * dt * 4;
+    player.velocity += player.a;
+  } else if (controls.left && !controls.right) {
+    if (player.velocity < 0) {
+      player.velocity /= slowDownFactor;
+    }
+    player.a = maxA * dt * 4;
+    player.velocity += player.a;
   } else {
-    if (diff < 0.01) {
-      diff = Math.pow(diff, 2);
-    } else {
-      diff = THREE.Math.clamp(Math.pow(diff + 1, 4), maxVelocity / 1000, maxVelocity);
-    }
+    player.velocity /= slowDownFactor;
   }
-  player.velocity = diff;
 
+  player.velocity = THREE.Math.clamp(player.velocity, -maxV, maxV);
   // Calculate position and rotation
   player.angle += player.velocity * dt;
   var direction = new THREE.Vector2(Math.cos(player.angle), Math.sin(player.angle));
@@ -149,7 +170,10 @@ function updatePlayerPosition(dt, time) {
   var offset = 0.012 * Math.sin(time * 2);
   player.gun.position.x = frustumHalfSize * direction.x * (baseOffset + offset);
   player.gun.position.y = frustumHalfSize * direction.y * (baseOffset + offset);
-  player.gun.rotation.z = player.angle + Math.PI / 2;
+
+  var dir = new THREE.Vector2(mouseX - player.gun.position.x, mouseY - player.gun.position.y);
+  player.gun.rotation.z = Math.atan2(dir.y, dir.x) - Math.PI / 2;
+  player.dir = dir.normalize();
 }
 
 function onWindowResize() {
