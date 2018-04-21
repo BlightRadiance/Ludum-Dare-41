@@ -74,32 +74,29 @@ function setupPlayingField() {
 }
 
 function setupPayer() {
-  var playerShape = new THREE.Shape();
-  var pW = 80;
-  var pH = 80;
-  playerShape.moveTo(pW * 0.7, -pH);
-  playerShape.lineTo(pW * 1.2, -pH + 10);
-  playerShape.lineTo(pW, pH);
-  playerShape.lineTo(-pW, pH);
-  playerShape.lineTo(-pW * 1.2, -pH  + 10);
-  playerShape.lineTo(-pW * 0.7, -pH-2);
-  playerShape.splineThru([
-    new THREE.Vector2(-pW * 0.7, -pH),
+  var pW = 40;
+  var pH = 40;
+  var gunShape = new THREE.Shape();
+  gunShape.moveTo(pW * 0.7, -pH + 10);
+  gunShape.lineTo(pW * 1.2, -pH);
+  gunShape.lineTo(0, pH + 50);
+  gunShape.lineTo(-pW * 1.2, -pH);
+  gunShape.lineTo(-pW * 0.7, -pH + 10);
+  gunShape.splineThru([
+    new THREE.Vector2(-pW * 0.7, -pH + 10),
     new THREE.Vector2(-pW / 2.5, -pH / 1.8),
     new THREE.Vector2(0, -pH / 2),
     new THREE.Vector2(pW / 2.5, -pH / 1.8),
-    new THREE.Vector2(pW * 0.7, -pH)
+    new THREE.Vector2(pW * 0.7, -pH + 10)
   ]);
-
-  var playerGeometry = new THREE.ShapeGeometry(playerShape);
-  player.shape = new THREE.Mesh(playerGeometry,
+  var gunGeometry = new THREE.ShapeGeometry(gunShape);
+  player.gun = new THREE.Mesh(gunGeometry,
     new THREE.MeshBasicMaterial({ color: 0x00000 }));
 
-  scene.add(player.shape);
+  scene.add(player.gun);
 
   player.angle = Math.PI / 2.0;
   player.velocity = 0.0;
-  player.acceleration = 0.0;
 }
 
 function animate() {
@@ -108,26 +105,26 @@ function animate() {
 }
 
 function render() {
-  var now = Date.now();
-  var dt = (now - oldTime) / 1000;
+  var now = Date.now() / 1000;
+  var dt = now - oldTime;
   oldTime = now;
 
   pointer.position.x = mouseX;
   pointer.position.y = mouseY;
 
   if (!paused) {
-    updatePlayerPosition(dt);
+    updatePlayerPosition(dt, now);
   }
 
   renderer.render(scene, camera);
 }
 
-function updatePlayerPosition(dt) {
+function updatePlayerPosition(dt, time) {
   var maxVelocity = 4 * Math.PI;
   var pointerPosition = new THREE.Vector2(mouseX, mouseY);
   pointerPosition = pointerPosition.normalize();
   targetAngle = Math.atan2(pointerPosition.y, pointerPosition.x);
-  var diff = Math.atan2(Math.sin(targetAngle-player.angle), Math.cos(targetAngle-player.angle));
+  var diff = Math.atan2(Math.sin(targetAngle - player.angle), Math.cos(targetAngle - player.angle));
 
   // Calculate velocity
   if (diff < 0) {
@@ -135,21 +132,24 @@ function updatePlayerPosition(dt) {
       diff = -Math.pow(diff, 2);
     } else {
       diff = THREE.Math.clamp(-Math.pow(diff - 1, 4), -maxVelocity, -maxVelocity / 1000);
-    } 
+    }
   } else {
     if (diff < 0.01) {
       diff = Math.pow(diff, 2);
     } else {
-      diff = THREE.Math.clamp(Math.pow(diff + 1, 4), maxVelocity / 1000, maxVelocity); 
+      diff = THREE.Math.clamp(Math.pow(diff + 1, 4), maxVelocity / 1000, maxVelocity);
     }
   }
   player.velocity = diff;
 
   // Calculate position and rotation
   player.angle += player.velocity * dt;
-  player.shape.position.x = frustumHalfSize * Math.cos(player.angle);
-  player.shape.position.y = frustumHalfSize * Math.sin(player.angle);
-  player.shape.rotation.z = player.angle - Math.PI / 2;
+  var direction = new THREE.Vector2(Math.cos(player.angle), Math.sin(player.angle));
+  var baseOffset = 0.90;
+  var offset = 0.012 * Math.sin(time * 2);
+  player.gun.position.x = frustumHalfSize * direction.x * (baseOffset + offset);
+  player.gun.position.y = frustumHalfSize * direction.y * (baseOffset + offset);
+  player.gun.rotation.z = player.angle + Math.PI / 2;
 }
 
 function onWindowResize() {
