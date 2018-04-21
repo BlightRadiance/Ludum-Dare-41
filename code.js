@@ -20,10 +20,13 @@ var currentAspectY;
 
 var pointer;
 var player = {};
+var field = {};
+var controls = {};
+var state = {};
+
+var stage = {};
 
 var oldTime = Date.now();
-
-var controls = {};
 
 init();
 animate();
@@ -53,6 +56,18 @@ function init() {
   updateScreenSpacePointerPosition();
   onWindowResize();
   clearControls();
+
+  resetState();
+  generateStage();
+}
+
+function resetState() {
+  state.time = 0.0;
+  state.pause = false;
+}
+
+function generateStage() {
+  stage.endTime = 10;
 }
 
 function clearControls() {
@@ -71,13 +86,17 @@ function onDocumentKeyUp(event) {
 
 function onDocumentKeyDown(event) {
   if (event.key == " ") {
-    controls.pause = !controls.pause;
+    state.pause = !state.pause;
+    if (state.endGame) {
+      state.endGame = false;
+      resetState();
+      generateStage();
+    }
   } else if (event.key == "ArrowLeft" || event.code == "KeyA") {
     controls.right = true;
   } else if (event.key == "ArrowRight" || event.code == "KeyD") {
     controls.left = true;
   }
-  console.log(event.code);
 };
 
 function setupPointer() {
@@ -88,10 +107,11 @@ function setupPointer() {
 }
 
 function setupPlayingField() {
-  var geometryField = new THREE.CircleGeometry(frustumSize / 2, 512);
+  var geometryField = new THREE.CircleGeometry(frustumSize / 4, 512);
   var materialField = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
   var circleField = new THREE.Mesh(geometryField, materialField);
   scene.add(circleField);
+  field.circleField = circleField;
 }
 
 function setupPayer() {
@@ -112,7 +132,7 @@ function setupPayer() {
   ]);
   var gunGeometry = new THREE.ShapeGeometry(gunShape);
   player.gun = new THREE.Mesh(gunGeometry,
-    new THREE.MeshBasicMaterial({ color: 0x00000 }));
+    new THREE.MeshBasicMaterial({ color: 0xFFFFFF }));
 
   scene.add(player.gun);
 
@@ -128,16 +148,31 @@ function animate() {
 function render() {
   var now = Date.now() / 1000;
   var dt = now - oldTime;
+  if (dt > 1 || dt < -1) {
+    dt = 0.013;
+  }
   oldTime = now;
 
   pointer.position.x = mouseX;
   pointer.position.y = mouseY;
 
-  if (!controls.pause) {
+  updateState();
+  if (!state.pause) {
+    console.log(state.time);
+    state.time += dt;
     updatePlayerPosition(dt, now);
+    field.circleField.scale.x = 0.3 + state.time / stage.endTime;
+    field.circleField.scale.y = 0.3 + state.time / stage.endTime;
   }
 
   renderer.render(scene, camera);
+}
+
+function updateState() {
+  if (state.time >= stage.endTime) {
+    state.pause = true;
+    state.endGame = true;
+  }
 }
 
 function updatePlayerPosition(dt, time) {
@@ -166,7 +201,7 @@ function updatePlayerPosition(dt, time) {
   // Calculate position and rotation
   player.angle += player.velocity * dt;
   var direction = new THREE.Vector2(Math.cos(player.angle), Math.sin(player.angle));
-  var baseOffset = 0.90;
+  var baseOffset = 1;
   var offset = 0.012 * Math.sin(time * 2);
   player.gun.position.x = frustumHalfSize * direction.x * (baseOffset + offset);
   player.gun.position.y = frustumHalfSize * direction.y * (baseOffset + offset);
