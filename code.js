@@ -4,7 +4,7 @@ if (typeof require === 'function') {
 
 var xAxis = new THREE.Vector2(1.0, 0.0);
 
-var camera, scene, renderer;
+var camera, scene, renderer, composer;
 var mouseRealX = 0, mouseRealY = 0;
 var mouseX = 0, mouseY = 0;
 var windowHalfX = window.innerWidth / 2.0;
@@ -18,12 +18,9 @@ var r, g, b, y;
 var currentAspectX;
 var currentAspectY;
 
-var pointer;
 var player = {};
 var field = {};
 var controls = {};
-var state = {};
-
 var stage = {};
 
 var oldTime = Date.now();
@@ -31,15 +28,26 @@ var oldTime = Date.now();
 init();
 animate();
 
+var effect;
+
 function init() {
   camera = camera = new THREE.OrthographicCamera(-frustumHalfSize * aspect, frustumHalfSize * aspect,
     frustumHalfSize, -frustumHalfSize, 1, 1000);
-  camera.position.set(0, 0, 1);
+  camera.position.set(0, 0, 10);
   scene = new THREE.Scene();
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer = new THREE.EffectComposer(renderer);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  var renderPass = new THREE.RenderPass(scene, camera);
+  composer.addPass(renderPass);
+  effect = new THREE.ShaderPass(THREE.Shader);
+  effect.uniforms['amount'].value = 0.002;
+  effect.renderToScreen = true;
+  composer.addPass(effect);
+
   document.body.appendChild(renderer.domElement);
 
   document.addEventListener('mousemove', onDocumentMouseMove, false);
@@ -51,23 +59,32 @@ function init() {
 
   setupPlayingField();
   setupPayer();
-  setupPointer();
 
   updateScreenSpacePointerPosition();
   onWindowResize();
   clearControls();
 
   resetState();
-  generateStage();
 }
 
 function resetState() {
-  state.time = 0.0;
-  state.pause = false;
-}
+  stage.time = 0.0;
+  stage.pause = false;
+  stage.endGame = false;
+  stage.progress = 0.0;
+  stage.endTime = 60;
+  stage.state = 0;
+  stage.oneTime = 0.7;
+  stage.twoTime = 0.95;
+  stage.color = 0x777777;
 
-function generateStage() {
-  stage.endTime = 10;
+  field.circleField.material.color.setHex(stage.color);
+
+  effect.uniforms['dimm'].value = 1.0;
+  effect.uniforms['amount'].value = 0.002;
+
+  player.gun.scale.x = 1.0;
+  player.gun.scale.y = 1.0;
 }
 
 function clearControls() {
@@ -86,11 +103,10 @@ function onDocumentKeyUp(event) {
 
 function onDocumentKeyDown(event) {
   if (event.key == " ") {
-    state.pause = !state.pause;
-    if (state.endGame) {
-      state.endGame = false;
+    stage.pause = !stage.pause;
+    if (stage.endGame) {
+      stage.endGame = false;
       resetState();
-      generateStage();
     }
   } else if (event.key == "ArrowLeft" || event.code == "KeyA") {
     controls.right = true;
@@ -98,13 +114,6 @@ function onDocumentKeyDown(event) {
     controls.left = true;
   }
 };
-
-function setupPointer() {
-  var geometryPointer = new THREE.CircleGeometry(frustumSize / 50, 32);
-  var materialPointer = new THREE.MeshBasicMaterial({ color: 0x000000 });
-  pointer = new THREE.Mesh(geometryPointer, materialPointer);
-  scene.add(pointer);
-}
 
 function setupPlayingField() {
   var geometryField = new THREE.CircleGeometry(frustumSize / 4, 512);
@@ -145,6 +154,7 @@ function animate() {
   render();
 }
 
+var endTime;
 function render() {
   var now = Date.now() / 1000;
   var dt = now - oldTime;
@@ -153,25 +163,39 @@ function render() {
   }
   oldTime = now;
 
-  pointer.position.x = mouseX;
-  pointer.position.y = mouseY;
-
-  updateState();
-  if (!state.pause) {
-    console.log(state.time);
-    state.time += dt;
-    updatePlayerPosition(dt, now);
-    field.circleField.scale.x = 0.3 + state.time / stage.endTime;
-    field.circleField.scale.y = 0.3 + state.time / stage.endTime;
+  if (!stage.pause) {
+    stage.time += dt;
+    updateState();
   }
-
-  renderer.render(scene, camera);
+  if (!stage.endGame && !stage.pause) {
+    stage.progress = stage.time / stage.endTime;
+    updatePlayerPosition(dt, now);
+    field.circleField.scale.x = 0.3 + stage.progress;
+    field.circleField.scale.y = 0.3 + stage.progress;
+    endTime = now;
+  } else if(!stage.pause) {
+    effect.uniforms['angle'].value = stage.time * dt;
+    effect.uniforms['amount'].value += 0.002 * dt * Math.sin(stage.time * field.circleField.scale.x);
+    effect.uniforms['dimm'].value -= 0.5 * dt;  
+    field.circleField.scale.x = Math.sin(stage.time * 3) * 0.1 + 1.0 + now - endTime;
+    field.circleField.scale.y = Math.cos(stage.time * 3 + Math.PI / 4) * 0.1 + 1.0 + now - endTime;
+  }
+  composer.render();
 }
 
 function updateState() {
-  if (state.time >= stage.endTime) {
-    state.pause = true;
-    state.endGame = true;
+  if (stage.progress > stage.oneTime && stage.progress < stage.twoTime) {
+    stage.state = 1;
+  } else if (stage.progress > stage.twoTime && stage.time < stage.endTime) {
+    stage.state = 2;
+  } else if (stage.time >= stage.endTime && !stage.endGame) {
+    field.circleField.material.color.setHex(0xFFFFFFF);
+    stage.endGame = true;
+    effect.uniforms['dimm'].value = 1.0;  
+    field.circleField.scale.x = 0.1;
+    field.circleField.scale.y = 0.1;  
+    player.gun.scale.x = 0;
+    player.gun.scale.y = 0;
   }
 }
 
@@ -203,11 +227,27 @@ function updatePlayerPosition(dt, time) {
   var direction = new THREE.Vector2(Math.cos(player.angle), Math.sin(player.angle));
   var baseOffset = 1;
   var offset = 0.012 * Math.sin(time * 2);
+  if (stage.state !== 0) {
+    // SNAP
+    offset = offset;
+  }
+
   player.gun.position.x = frustumHalfSize * direction.x * (baseOffset + offset);
   player.gun.position.y = frustumHalfSize * direction.y * (baseOffset + offset);
+  if (stage.state === 2) {
+    var posToZero = (stage.progress - stage.twoTime) / (1.0 - stage.twoTime);
+    player.gun.position.x *= 1.0 - posToZero;
+    player.gun.position.y *= 1.0 - posToZero;
+    player.gun.scale.x = Math.min(1.0 - posToZero, 1.0);
+    player.gun.scale.y = Math.min(1.0 - posToZero, 1.0);
+    effect.uniforms['dimm'].value = 1.0 - Math.sqrt(posToZero);
+    effect.uniforms['amount'].value = 0.02 * posToZero + 0.002;
+  }
 
-  var dir = new THREE.Vector2(mouseX - player.gun.position.x, mouseY - player.gun.position.y);
-  player.gun.rotation.z = Math.atan2(dir.y, dir.x) - Math.PI / 2;
+  var dir = new THREE.Vector2(0 - player.gun.position.x, 0 - player.gun.position.y);
+  if (stage.state !== 2) {
+    player.gun.rotation.z = Math.atan2(dir.y, dir.x) - Math.PI / 2;
+  }
   player.dir = dir.normalize();
 }
 
@@ -219,7 +259,6 @@ function onWindowResize() {
   if (windowHalfX > windowHalfY) {
     currentAspectX = aspect;
     currentAspectY = 1.0;
-
   } else {
     currentAspectX = 1.0;
     currentAspectY = 1.0 / aspect;
@@ -230,6 +269,7 @@ function onWindowResize() {
   camera.bottom = - frustumHalfSize * currentAspectY;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
 
   updateScreenSpacePointerPosition();
 }
