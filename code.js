@@ -76,11 +76,11 @@ function resetState() {
   stage.pause = false;
   stage.endGame = false;
   stage.progress = 0.0;
-  stage.endTime = 60;
+  stage.endTime = 50;
   stage.state = 0;
   stage.oneTime = 0.7;
   stage.twoTime = 0.95;
-  stage.color = 0x777777;
+  stage.color = 0xFFFFFF;
 
   field.circleField.material.color.setHex(stage.color);
 
@@ -121,7 +121,7 @@ function onDocumentKeyDown(event) {
 
 function setupPlayingField() {
   var geometryField = new THREE.CircleGeometry(frustumSize / 4, 512);
-  var materialField = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+  var materialField = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true });
   var circleField = new THREE.Mesh(geometryField, materialField);
   scene.add(circleField);
   field.circleField = circleField;
@@ -145,7 +145,7 @@ function setupPayer() {
   ]);
   var gunGeometry = new THREE.ShapeGeometry(gunShape);
   player.gun = new THREE.Mesh(gunGeometry,
-    new THREE.MeshBasicMaterial({ color: 0xFFFFFF }));
+    new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true }));
 
   scene.add(player.gun);
 
@@ -161,13 +161,6 @@ function setupDanger() {
   for (i = 0; i < stage.sectorCount; i++) {
     var color;
     var range = {};
-    if (i % 3 === 1) {
-      color = new THREE.Color(0xFF0000);
-    } else if (i % 3 == 2) {
-      color = new THREE.Color(0x00FF00);
-    } else {
-      color = new THREE.Color(0x0000FF);
-    }
     var shape = new THREE.Shape();
     shape.moveTo(0, 0);
     range.from = currentAngle;
@@ -182,7 +175,7 @@ function setupDanger() {
     shape.lineTo(dir.x * howFar, dir.y * howFar);
     danger.sectorsShapes.push(new THREE.Mesh(
       new THREE.ShapeGeometry(shape),
-      new THREE.MeshBasicMaterial({ color: color })));
+      new THREE.MeshBasicMaterial({ color: 0xFFFFFF, opacity: 0.05, transparent: true })));
     danger.sectorsRanges.push(range);
     scene.add(danger.sectorsShapes[i]);
   }
@@ -209,8 +202,8 @@ function render() {
   if (!stage.endGame && !stage.pause) {
     stage.progress = stage.time / stage.endTime;
     updatePlayerPosition(dt, stage.time);
-    field.circleField.scale.x = 0.3 + stage.progress;
-    field.circleField.scale.y = 0.3 + stage.progress;
+    field.circleField.scale.x = 0.3 + stage.progress * 1.3;
+    field.circleField.scale.y = 0.3 + stage.progress * 1.3;
     endTime = now;
   } else if(!stage.pause) {
     effect.uniforms['angle'].value = stage.time * dt;
