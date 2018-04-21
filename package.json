@@ -1,0 +1,11 @@
+{
+  "name": "ld-41-game",
+  "version": "1.0.0",
+  "description": "Ludum dare game!",
+  "main": "code.js",
+  "author": "",
+  "license": "Unlicense",
+  "dependencies": {
+    "three": "^0.89.0"
+  }
+}
