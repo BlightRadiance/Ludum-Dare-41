@@ -79,7 +79,7 @@ function resetState() {
   stage.pause = false;
   stage.endGame = false;
   stage.progress = 0.0;
-  stage.endTime = 50;
+  stage.endTime = 120;
   stage.state = 0;
   stage.oneTime = 0.7;
   stage.twoTime = 0.95;
@@ -87,9 +87,11 @@ function resetState() {
   stage.timeMultiplier = 0;
   stage.timeMultiplierDecayBase = 2;
   stage.timeMultiplierDecay = 2;
-  stage.timePerClickBase = 0.6;
   stage.timePerClick =  0.6;
+
   stage.threat = 0;
+  stage.threatDecayBase = 1;
+  stage.threatDecay = 1;
   stage.threatPerClick = 1;
 
   stage.startTime = getTime();
@@ -237,6 +239,10 @@ function render() {
       stage.timeMultiplier = Math.max(0.0, stage.timeMultiplier - stage.timeMultiplierDecay * dt)
       stage.timeMultiplierDecay = stage.timeMultiplierDecayBase * stage.timeMultiplier / 2.0;
     }
+
+    if (stage.threat > 0) {
+      stage.threat = Math.max(0.0, stage.threat - stage.threatDecay * dt * (stage.threat / 10))
+    }
   } else if (!stage.pause) {
     effect.uniforms['angle'].value = stage.time * dt;
     effect.uniforms['amount'].value += 0.002 * dt * Math.sin(stage.time * field.circleField.scale.x);
@@ -268,6 +274,7 @@ function updateClicks() {
       console.log("click outside");
       stage.timeMultiplier -= 1.2 * stage.timePerClick;
       stage.threat -= stage.threatPerClick;
+      stage.threat = Math.max(stage.threat, 0.0);
     }
   }
 }
