@@ -33,17 +33,40 @@ function init() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  var geometryField = new THREE.CircleGeometry(frustumSize / 2, 512);
-  var materialField = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
-  var circleField = new THREE.Mesh(geometryField, materialField);
-  scene.add(circleField);
+  document.addEventListener('mousemove', onDocumentMouseMove, false);
+  document.addEventListener('touchstart', onDocumentTouchStart, false);
+  document.addEventListener('touchmove', onDocumentTouchMove, false);
+  window.addEventListener('resize', onWindowResize, false);
 
+  setupPointer();
+  setupPlayingField();
+  setupPayerShape();
+  setupHelpers();
+
+  onWindowResize();
+}
+
+function setupPointer() {
   var geometryPointer = new THREE.CircleGeometry(frustumSize / 20, 32);
   var materialPointer = new THREE.MeshBasicMaterial({ color: 0x888888 });
   pointer = new THREE.Mesh(geometryPointer, materialPointer);
   scene.add(pointer);
 
+}
 
+function setupPlayingField() {
+  var geometryField = new THREE.CircleGeometry(frustumSize / 2, 512);
+  var materialField = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+  var circleField = new THREE.Mesh(geometryField, materialField);
+  scene.add(circleField);
+
+}
+
+function setupPayerShape() {
+
+}
+
+function setupHelpers() {
   var geometryHelper = new THREE.CircleGeometry(frustumSize / 10, 32);
   r = new THREE.Mesh(geometryHelper, new THREE.MeshBasicMaterial({ color: 0xFF0000 }));
   g = new THREE.Mesh(geometryHelper, new THREE.MeshBasicMaterial({ color: 0x00FF00 }));
@@ -53,13 +76,6 @@ function init() {
   scene.add(g);
   scene.add(b);
   scene.add(y);
-
-  document.addEventListener('mousemove', onDocumentMouseMove, false);
-  document.addEventListener('touchstart', onDocumentTouchStart, false);
-  document.addEventListener('touchmove', onDocumentTouchMove, false);
-  window.addEventListener('resize', onWindowResize, false);
-
-  onWindowResize();
 }
 
 function animate() {
