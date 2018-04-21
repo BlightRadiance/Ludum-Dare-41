@@ -58,6 +58,9 @@ function init() {
   document.addEventListener("keyup", onDocumentKeyUp, false);
   window.addEventListener('resize', onWindowResize, false);
 
+  document.addEventListener("click", onDocumentClick, false);
+  document.addEventListener("touchstart", onDocumentClick, false);
+
   stage.sectorCount = 12;
 
   setupDanger();
@@ -65,7 +68,7 @@ function init() {
   setupPayer();
 
   resetState();
-  
+
   updateScreenSpacePointerPosition();
   onWindowResize();
   clearControls();
@@ -81,6 +84,17 @@ function resetState() {
   stage.oneTime = 0.7;
   stage.twoTime = 0.95;
   stage.color = 0xFFFFFF;
+  stage.timeMultiplier = 0;
+  stage.timeMultiplierDecayBase = 2;
+  stage.timeMultiplierDecay = 2;
+  stage.timePerClickBase = 0.6;
+  stage.timePerClick =  0.6;
+  stage.threat = 0;
+  stage.threatPerClick = 1;
+
+  stage.startTime = getTime();
+  stage.finishTime = 0;
+  stage.score = 0;
 
   field.circleField.material.color.setHex(stage.color);
 
@@ -95,6 +109,7 @@ function clearControls() {
   controls.left = false;
   controls.right = false;
   controls.pause = false;
+  controls.click = false;
 }
 
 function onDocumentKeyUp(event) {
@@ -118,6 +133,10 @@ function onDocumentKeyDown(event) {
     controls.left = true;
   }
 };
+
+function onDocumentClick(event) {
+  controls.click = true;
+}
 
 function setupPlayingField() {
   var geometryField = new THREE.CircleGeometry(frustumSize / 4, 512);
@@ -186,9 +205,15 @@ function animate() {
   render();
 }
 
-var endTime;
+function getTime() {
+  return Date.now() / 1000;
+}
+
 function render() {
-  var now = Date.now() / 1000;
+  console.log("stage.timeMultiplier: " + stage.timeMultiplier);
+  console.log("stage.threat: " + stage.threat);
+
+  var now = getTime();
   var dt = now - oldTime;
   if (dt > 1 || dt < -1) {
     dt = 0.013;
@@ -196,26 +221,54 @@ function render() {
   oldTime = now;
 
   if (!stage.pause) {
-    stage.time += dt;
+    stage.time += dt * Math.min(Math.max(1.0, stage.timeMultiplier), 5.0);
     updateState();
   }
   if (!stage.endGame && !stage.pause) {
     stage.progress = stage.time / stage.endTime;
-    updatePlayerPosition(dt, stage.time);
+    updatePlayerPosition(dt, stage.time, now);
     field.circleField.scale.x = 0.3 + stage.progress * 1.3;
     field.circleField.scale.y = 0.3 + stage.progress * 1.3;
-    endTime = now;
-  } else if(!stage.pause) {
+
+    updateClicks();
+
+    stage.finishTime = now;
+    if (stage.timeMultiplier > 0) {
+      stage.timeMultiplier = Math.max(0.0, stage.timeMultiplier - stage.timeMultiplierDecay * dt)
+      stage.timeMultiplierDecay = stage.timeMultiplierDecayBase * stage.timeMultiplier / 2.0;
+    }
+  } else if (!stage.pause) {
     effect.uniforms['angle'].value = stage.time * dt;
     effect.uniforms['amount'].value += 0.002 * dt * Math.sin(stage.time * field.circleField.scale.x);
-    effect.uniforms['dimm'].value -= 0.5 * dt;  
-    field.circleField.scale.x = Math.sin(stage.time * 3) * 0.1 + 1.0 + now - endTime;
-    field.circleField.scale.y = Math.cos(stage.time * 3 + Math.PI / 4) * 0.1 + 1.0 + now - endTime;
+    effect.uniforms['dimm'].value -= 0.5 * dt;
+    field.circleField.scale.x = Math.sin(stage.time * 3) * 0.1 + 1.0 + now - stage.finishTime;
+    field.circleField.scale.y = Math.cos(stage.time * 3 + Math.PI / 4) * 0.1 + 1.0 + now - stage.finishTime;
   }
   if (stage.state > 1) {
     composer.render();
   } else {
     renderer.render(scene, camera);
+  }
+}
+
+function updateClicks() {
+  if (controls.click) {
+    controls.click = false;
+    if (stage.pause) {
+      return;
+    }
+    var circleW = field.circleField.scale.x * frustumSize / 4;
+    var circleH = field.circleField.scale.y * frustumSize / 4;
+  if (mouseX < circleW && mouseX > -circleW
+      && mouseY < circleH && mouseY > -circleH) {
+      console.log("click inside");
+      stage.timeMultiplier += stage.timePerClick;
+      stage.threat += stage.threatPerClick;
+    } else {
+      console.log("click outside");
+      stage.timeMultiplier -= 1.2 * stage.timePerClick;
+      stage.threat -= stage.threatPerClick;
+    }
   }
 }
 
@@ -228,15 +281,15 @@ function updateState() {
     field.circleField.material.color.setHex(0xFFFFFFF);
     stage.state = 3;
     stage.endGame = true;
-    effect.uniforms['dimm'].value = 1.0;  
+    effect.uniforms['dimm'].value = 1.0;
     field.circleField.scale.x = 0.1;
-    field.circleField.scale.y = 0.1;  
+    field.circleField.scale.y = 0.1;
     player.gun.scale.x = 0;
     player.gun.scale.y = 0;
   }
 }
 
-function updatePlayerPosition(dt, time) {
+function updatePlayerPosition(dt, gameTime, gloablTime) {
   var maxV = 2 * Math.PI;
   var maxA = Math.PI;
 
@@ -263,7 +316,7 @@ function updatePlayerPosition(dt, time) {
   player.angle += player.velocity * dt;
   var direction = new THREE.Vector2(Math.cos(player.angle), Math.sin(player.angle));
   var baseOffset = 1;
-  var offset = 0.012 * Math.sin(time * 2);
+  var offset = 0.012 * Math.sin(gloablTime * 2);
   if (stage.state !== 0) {
     // SNAP
     offset = offset;
