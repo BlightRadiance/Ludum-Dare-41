@@ -31,7 +31,7 @@ textScore.size = 40;
 
 var textEnd = {};
 textEnd.text = "";
-textEnd.size = 100;
+textEnd.size = 80;
 
 var r, g, b, y;
 
@@ -608,7 +608,11 @@ function updateClicks() {
       //console.log("click inside");
       stage.timeMultiplier += stage.timePerClick;
       stage.threat += stage.threatPerClick;
-      stage.score += stage.threat / 10 + 1;
+      if (stage.playerInSpike < surfingThreshold && stage.playerInSpike > 0.05) {
+        stage.score += stage.threat * 3;
+      } else {
+        stage.score += stage.threat * 0.8;
+      }
       audio.click.play();
     } else {
       //console.log("click outside");
