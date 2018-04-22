@@ -8,4 +8,4 @@ Controls:
 - Use 'A' and 'D' or arrows to move your ship
 - Use 'Space' to pause the game
 
-![Screenshot](screens/pic.png)
+![Gif](https://media.giphy.com/media/PMzUdhJ54M3FOhX12R/giphy.gif)
