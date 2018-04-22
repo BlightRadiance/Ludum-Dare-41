@@ -365,9 +365,9 @@ function generateTrial() {
 function runTrial(trial, dt, now) {
   if (trial.type == 1) {
     if (trial.direction == 1) {
-      trial.deadZone += trial.speed * dt * (stage.threat / 10.0 + 1);
+      trial.deadZone += trial.speed * dt * (stage.threat / 40.0 + 1);
     } else {
-      trial.deadZone -= trial.speed * dt * (stage.threat / 10.0 + 1);
+      trial.deadZone -= trial.speed * dt * (stage.threat / 40.0 + 1);
     }
     for (i = 0; i < stage.sectorCount; i++) {
       var theatAngleDiff = trial.deadZoneAngleDiff / (stage.threat / 80.0 + 0.8)
@@ -395,7 +395,7 @@ function collideDangerWithPlayer(dt, now) {
     }
     if (isAngleBetween(danger.properties[i].from, danger.properties[i].to, player.angle)) {
       stage.playerInSpike = Math.max(stage.playerInSpike, danger.shapes[i].material.opacity);
-      console.log(stage.playerInSpike);
+      //console.log(stage.playerInSpike);
       if (stage.playerInSpike < 0.5) {
         danger.shapes[i].material.color.setHex(0x00AA00);
       } else {
@@ -418,7 +418,7 @@ function calculateFrameScore(dt) {
     fontSizeOffset = -20;
     stage.frameScore /= 2;
   } else {
-    stage.frameScore += 50;
+    stage.frameScore += 5;
     stage.frameScore *= stage.threat / 10;
   }
   text.size = textScore.size + stage.threat + fontSizeOffset;
