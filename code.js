@@ -14,6 +14,17 @@ var frustumSize = 1000.0;
 var frustumHalfSize = frustumSize / 2.0;
 var dangerBaseOpacity = 0.05;
 
+var textUpdateTimer = 0.0;
+var textThreshold = 0.13;
+var textNeedUpdate = true;
+var textPause = {};
+textPause.text = "Reignite dying star\n\nFire at the star by pressing on it\nThis will rise threat level\nBut will make progress faster\nAnd your score higher\n\n Press Space to continue";
+textPause.size = 30;
+
+var textScore = {};
+textScore.text = "";
+textScore.size = 40;
+
 var r, g, b, y;
 
 var currentAspectX;
@@ -33,6 +44,7 @@ init();
 animate();
 
 var effect;
+var fxaa;
 
 function init() {
   camera = camera = new THREE.OrthographicCamera(-frustumHalfSize * aspect, frustumHalfSize * aspect,
@@ -51,6 +63,9 @@ function init() {
   effect.uniforms['amount'].value = 0.002;
   effect.renderToScreen = true;
   composer.addPass(effect);
+  fxaa = new THREE.ShaderPass(THREE.FXAAShader);
+  composer.addPass(fxaa);
+
 
   document.body.appendChild(renderer.domElement);
 
@@ -92,28 +107,47 @@ function createText() {
   textGeo.computeBoundingBox();
   textGeo.computeVertexNormals();
   var centerOffsetX = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
+  var centerOffsetY = - 0.5 * (textGeo.boundingBox.max.y + textGeo.boundingBox.min.y);
   text.mesh = new THREE.Mesh(textGeo, text.material);
   text.mesh.position.x = centerOffsetX;
-  text.mesh.position.y = 0;
+  text.mesh.position.y = centerOffsetY;
   text.mesh.position.z = 12;
 
   text.meshBlack = new THREE.Mesh(textGeo, text.materialBlack);
   text.meshBlack.position.x = centerOffsetX;
-  text.meshBlack.position.y = 0;
+  text.meshBlack.position.y = centerOffsetY;
   text.meshBlack.position.z = 10;
-  text.meshBlack.position.x += 5;
+  text.meshBlack.position.x += 3;
+  text.meshBlack.position.y += 2;
+
+  text.meshBlack2 = new THREE.Mesh(textGeo, text.materialBlack);
+  text.meshBlack2.position.x = centerOffsetX;
+  text.meshBlack2.position.y = centerOffsetY;
+  text.meshBlack2.position.z = 10;
+  text.meshBlack2.position.x -= 2;
+  text.meshBlack2.position.y -= 2;
   scene.add(text.meshBlack);
+  scene.add(text.meshBlack2);
   scene.add(text.mesh);
 }
 
 function refreshText() {
-  if (text.font !== null) {
+  if (text.font !== null && textNeedUpdate) {
+    textNeedUpdate = false;
     scene.remove(text.mesh);
     scene.remove(text.meshBlack);
+    scene.remove(text.meshBlack2);
     doDispose(text.mesh);
     doDispose(text.meshBlack);
+    doDispose(text.meshBlack2);
     createText();
   }
+}
+
+function setText(textTarget) {
+  textNeedUpdate = true;
+  text.size = textTarget.size;
+  text.text = textTarget.text;
 }
 
 function doDispose(obj) {
@@ -138,9 +172,9 @@ function doDispose(obj) {
 };
 
 function initFont() {
-  text.text = 'Press SPACE to begin\ndsf';
-  text.height = 100;
-  text.size = 50;
+  text.text = textPause;
+  text.height = 20;
+  text.size = 30;
   text.hover = 0;
   text.curveSegments = 4;
   text.bevelThickness = 1;
@@ -186,7 +220,7 @@ function resetState() {
   field.circleField.material.color.setHex(stage.color);
 
   effect.uniforms['dimm'].value = 1.0;
-  effect.uniforms['amount'].value = 0.0;
+  effect.uniforms['amount'].value = 0.002;
 
   player.gun.scale.x = 1.0;
   player.gun.scale.y = 1.0;
@@ -210,6 +244,11 @@ function onDocumentKeyUp(event) {
 function onDocumentKeyDown(event) {
   if (event.key == " ") {
     stage.pause = !stage.pause;
+    if (stage.pause) {
+      setText(textPause);
+    } else {
+      setText(textScore);
+    }
     if (stage.endGame) {
       stage.endGame = false;
       resetState();
@@ -401,13 +440,17 @@ function getTime() {
 function render() {
   //console.log("stage.timeMultiplier: " + stage.timeMultiplier);
   //console.log("stage.threat: " + stage.threat);
-  refreshText();
-
   var now = getTime();
   var dt = now - oldTime;
   if (dt > 1 || dt < -1) {
     dt = 0.013;
   }
+  textUpdateTimer += dt;
+  if (textUpdateTimer > textThreshold) {
+    textUpdateTimer = 0;
+    refreshText();    
+  }
+
   oldTime = now;
 
   if (!stage.pause) {
@@ -415,6 +458,9 @@ function render() {
     updateState();
   }
   if (!stage.endGame && !stage.pause) {
+    textNeedUpdate = true;
+    text.text = Math.ceil(stage.threat);
+
     stage.progress = stage.time / stage.endTime;
 
     updatePlayerPosition(dt, stage.time, now);
@@ -454,11 +500,7 @@ function render() {
     field.circleField.scale.x = Math.sin(stage.time * 3) * 0.1 + 1.0 + now - stage.finishTime;
     field.circleField.scale.y = Math.cos(stage.time * 3 + Math.PI / 4) * 0.1 + 1.0 + now - stage.finishTime;
   }
-  if (stage.state > 1) {
-    composer.render();
-  } else {
-    renderer.render(scene, camera);
-  }
+  composer.render();
 }
 
 function updateClicks() {
@@ -476,9 +518,9 @@ function updateClicks() {
       stage.threat += stage.threatPerClick;
     } else {
       //console.log("click outside");
-      stage.timeMultiplier -= 1.2 * stage.timePerClick;
-      stage.threat -= stage.threatPerClick;
-      stage.threat = Math.max(stage.threat, 0.0);
+      //stage.timeMultiplier -= 1.2 * stage.timePerClick;
+      //stage.threat -= stage.threatPerClick;
+      //stage.threat = Math.max(stage.threat, 0.0);
     }
   }
 }
@@ -571,6 +613,8 @@ function onWindowResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
+
+  fxaa.uniforms['resolution'].value = new THREE.Vector2(window.innerWidth, window.innerHeight);
 
   updateScreenSpacePointerPosition();
 }
