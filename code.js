@@ -118,6 +118,13 @@ function setupSounds() {
     audio.click.setLoop(false);
     audio.click.setVolume(0.1);
   });
+
+  audio.explode = new THREE.Audio(listener);
+  audioLoader.load('effects/explode.wav', function (buffer) {
+    audio.explode.setBuffer(buffer);
+    audio.explode.setLoop(false);
+    audio.explode.setVolume(0.2);
+  });
 }
 
 function createText() {
@@ -647,6 +654,7 @@ function updateState() {
   } else if (stage.time >= stage.endTime && !stage.endGame) {
     field.circleField.material.color.setHex(0xFFFFFFF);
     stage.state = 3;
+    audio.explode.play();
     stage.endGame = true;
     setText(textEnd);
     text.text = "Score: " + Math.ceil(stage.score);
