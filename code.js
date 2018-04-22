@@ -12,6 +12,7 @@ var windowHalfY = window.innerHeight / 2.0;
 var aspect = window.innerWidth / window.innerHeight;
 var frustumSize = 1000.0;
 var frustumHalfSize = frustumSize / 2.0;
+var dangerBaseOpacity = 0.05;
 
 var r, g, b, y;
 
@@ -61,7 +62,7 @@ function init() {
   document.addEventListener("click", onDocumentClick, false);
   document.addEventListener("touchstart", onDocumentClick, false);
 
-  stage.sectorCount = 12;
+  stage.sectorCount = 30;
 
   setupDanger();
   setupPlayingField();
@@ -87,7 +88,7 @@ function resetState() {
   stage.timeMultiplier = 0;
   stage.timeMultiplierDecayBase = 2;
   stage.timeMultiplierDecay = 2;
-  stage.timePerClick =  0.6;
+  stage.timePerClick = 0.6;
 
   stage.threat = 0;
   stage.threatDecayBase = 1;
@@ -175,31 +176,97 @@ function setupPayer() {
 }
 
 function setupDanger() {
-  danger.sectorsShapes = [];
-  danger.sectorsRanges = [];
+  danger.shapes = [];
+  danger.properties = [];
   var currentAngle = 0;
   var angleStep = 2 * Math.PI / stage.sectorCount;
   for (i = 0; i < stage.sectorCount; i++) {
     var color;
-    var range = {};
+    var properties = {};
     var shape = new THREE.Shape();
     shape.moveTo(0, 0);
-    range.from = currentAngle;
+    properties.from = currentAngle;
     var dir = new THREE.Vector2(Math.cos(currentAngle), Math.sin(currentAngle));
     dir = dir.normalize();
     var howFar = 10000;
     shape.lineTo(dir.x * howFar, dir.y * howFar);
     currentAngle += angleStep;
-    range.to = currentAngle;
+    properties.to = currentAngle;
     var dir = new THREE.Vector2(Math.cos(currentAngle), Math.sin(currentAngle));
     dir = dir.normalize();
     shape.lineTo(dir.x * howFar, dir.y * howFar);
-    danger.sectorsShapes.push(new THREE.Mesh(
+    danger.shapes.push(new THREE.Mesh(
       new THREE.ShapeGeometry(shape),
-      new THREE.MeshBasicMaterial({ color: 0xFFFFFF, opacity: 0.05, transparent: true })));
-    danger.sectorsRanges.push(range);
-    scene.add(danger.sectorsShapes[i]);
+      new THREE.MeshBasicMaterial({ color: 0xFFFFFF, opacity: dangerBaseOpacity, transparent: true })));
+
+    danger.properties.push(properties);
+    scene.add(danger.shapes[i]);
   }
+  danger.trials = [];
+
+  generateTrial();
+}
+
+function generateTrial() {
+  var trial = {};
+  // Danger storm
+  trial.type = 1;
+  trial.timeToAppear = 5;
+  trial.deadZone = 0;
+  trial.deadZoneAngleDiff = Math.PI / 8;
+  trial.speed = Math.PI / 8;
+
+  danger.trials.push(trial);
+}
+
+function runTrial(trial, dt, now) {
+  if (trial.type == 1) {
+    trial.deadZone += trial.speed * dt;
+    for (i = 0; i < stage.sectorCount; i++) {
+      if (collideAngleRanges(danger.properties[i].from, danger.properties[i].to,
+        trial.deadZone - trial.deadZoneAngleDiff, trial.deadZone + trial.deadZoneAngleDiff)) {
+        danger.shapes[i].material.opacity = 1.0;
+      } else {
+        danger.shapes[i].material.opacity = dangerBaseOpacity;
+      }
+      if (isAngleBetween(danger.properties[i].from, danger.properties[i].to, player.angle)) {
+        danger.shapes[i].material.color.setHex(0xFF0000);
+      } else {
+        danger.shapes[i].material.color.setHex(0xFFFFFF);
+      }
+    }
+  }
+}
+
+function isAngleBetween(aA, aB, target) {
+  return isAngleBetweenImpl(aA, aB, target, false);
+}
+
+function isAngleBetweenImpl(aA, aB, target, req) {
+  var normalAA = aA % (2.0 * Math.PI);
+  var normalAB = aB % (2.0 * Math.PI);
+  var normalTarget = target % (2.0 * Math.PI);
+  if (normalAA < 0.0) normalAA = 2.0 * Math.PI + normalAA;
+  if (normalAB < 0.0) normalAB = 2.0 * Math.PI + normalAB;
+  if (normalTarget < 0.0) normalTarget = 2.0 * Math.PI + normalTarget;
+  if (normalAA <= normalAB) {
+    return normalTarget > normalAA && normalTarget < normalAB;
+  } else if (!req) {
+    return isAngleBetweenImpl(normalAA, 2.0 * Math.PI - 0.01, target, true) || isAngleBetweenImpl(0.0, normalAB, target, true);
+  } else {
+    return false;
+  }
+}
+
+function sleepFor( sleepDuration ){
+  var now = new Date().getTime();
+  while(new Date().getTime() < now + sleepDuration){ /* do nothing */ } 
+}
+
+// TODO: check
+function collideAngleRanges(aA, aB, bA, bB) {
+  return isAngleBetween(aA, aB, bA) || isAngleBetween(aA, aB, bB)
+  || isAngleBetween(bA, bB, aA) || isAngleBetween(bA, bB, aB);
 }
 
 function animate() {
@@ -228,7 +295,10 @@ function render() {
   }
   if (!stage.endGame && !stage.pause) {
     stage.progress = stage.time / stage.endTime;
+
     updatePlayerPosition(dt, stage.time, now);
+
+    //field
     field.circleField.scale.x = 0.3 + stage.progress * 1.3;
     field.circleField.scale.y = 0.3 + stage.progress * 1.3;
     field.circleField.material.color.g = stage.threat / 40 + 0.2;
@@ -237,6 +307,7 @@ function render() {
     //console.log("field.circleField.material.color.r: " + field.circleField.material.color.r);
     updateClicks();
 
+    //decay
     stage.finishTime = now;
     if (stage.timeMultiplier > 0) {
       stage.timeMultiplier = Math.max(0.0, stage.timeMultiplier - stage.timeMultiplierDecay * dt)
@@ -245,6 +316,11 @@ function render() {
 
     if (stage.threat > 0) {
       stage.threat = Math.max(0.0, stage.threat - stage.threatDecay * dt * (stage.threat / 10))
+    }
+
+    //trials
+    for (i = 0; i < danger.trials.length; i++) {
+      runTrial(danger.trials[i], dt, now);
     }
   } else if (!stage.pause) {
     effect.uniforms['angle'].value = stage.time * dt;
@@ -268,7 +344,7 @@ function updateClicks() {
     }
     var circleW = field.circleField.scale.x * frustumSize / 4;
     var circleH = field.circleField.scale.y * frustumSize / 4;
-  if (mouseX < circleW && mouseX > -circleW
+    if (mouseX < circleW && mouseX > -circleW
       && mouseY < circleH && mouseY > -circleH) {
       //console.log("click inside");
       stage.timeMultiplier += stage.timePerClick;
