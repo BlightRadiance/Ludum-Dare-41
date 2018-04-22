@@ -1,0 +1,1 @@
+Particle system related images are a part of https://github.com/flimshaw/THREE.GPUParticleSystem
