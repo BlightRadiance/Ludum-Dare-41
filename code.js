@@ -19,8 +19,8 @@ var textThreshold = 0.026;
 var textNeedsUpdate = true;
 var textPause = {};
 var surfingThreshold = 0.8;
-textPause.text = "Reignite dying star\n\nClick the star to increase\nits gravitational pull\n\nThis will destabilize the star\nBut will make progress faster\nAnd your score higher\n\nUse 'A' and 'D' or arrows to evade\nenergy bursts\nSurf green energy bursts\nfor higher score\n\nPress 'Space' to continue";
-textPause.size = 25;
+textPause.text = "Reignite dying star\n\nClick the star to increase\nits gravitational pull\n\nThis will destabilize the star\nBut will make progress faster\nAnd your score higher\n\nUse 'A' and 'D' or arrows to evade\nenergy bursts\n\nSurf green energy bursts\nfor higher score\n\n\nPress 'Space' to continue";
+textPause.size = 30;
 
 var trialShiftTimer = 0.0;
 var trialShiftThreshold = 5;
@@ -421,7 +421,7 @@ function collideDangerWithPlayer(dt, now) {
       stage.playerInSpike = Math.max(stage.playerInSpike, danger.shapes[i].material.opacity);
       if (stage.playerInSpike < surfingThreshold && stage.playerInSpike > 0.05 || danger.properties[i].touchedByTrialsCount > 1) {
         stage.playerInSpike = surfingThreshold - 0.1;
-        danger.shapes[i].material.color.setHex(0x00AA00);
+        danger.shapes[i].material.color.setHex(0x114411);
       } else {
         danger.shapes[i].material.color.setHex(0xAA0000);
       }
@@ -431,7 +431,7 @@ function collideDangerWithPlayer(dt, now) {
         danger.shapes[i].material.opacity -= 8 * dt;
       } else {
         if (danger.shapes[i].material.opacity < surfingThreshold) {
-          danger.shapes[i].material.color.setHex(0x00AA00);
+          danger.shapes[i].material.color.setHex(0x118811);
         } else {
           danger.shapes[i].material.color.setHex(0xFFFFFF);
         }
@@ -564,7 +564,7 @@ function render() {
   if (!stage.endGame && !stage.pause) {
     directionSwapTimer += dt;
     trialShiftTimer += dt;
-    effect.uniforms['amount'].value = 0.002 * stage.threat / 40;
+    effect.uniforms['amount'].value = 0.002 * stage.threat / 30;
     textNeedsUpdate = true;
     text.text = Math.ceil(stage.score);
 
