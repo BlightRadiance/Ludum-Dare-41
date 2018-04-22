@@ -25,6 +25,10 @@ var textScore = {};
 textScore.text = "";
 textScore.size = 40;
 
+var textEnd = {};
+textPause.text = "";
+textPause.size = 50;
+
 var r, g, b, y;
 
 var currentAspectX;
@@ -198,7 +202,7 @@ function resetState() {
   stage.pause = false;
   stage.endGame = false;
   stage.progress = 0.0;
-  stage.endTime = 120;
+  stage.endTime = 10;
   stage.state = 0;
   stage.oneTime = 0.7;
   stage.twoTime = 0.95;
@@ -211,11 +215,11 @@ function resetState() {
   stage.threat = 0;
   stage.threatDecayBase = 1;
   stage.threatDecay = 1;
-  stage.threatPerClick = 1;
+  stage.threatPerClick = 1.5;
 
   stage.startTime = getTime();
   stage.finishTime = 0;
-  stage.score = 0;
+  stage.score = 1337;
 
   field.circleField.material.color.setHex(stage.color);
 
@@ -460,7 +464,7 @@ function render() {
   if (!stage.endGame && !stage.pause) {
     effect.uniforms['amount'].value = 0.002 * stage.threat / 40;
     textNeedUpdate = true;
-    text.text = Math.ceil(stage.threat);
+    text.text = Math.ceil(stage.score);
 
     stage.progress = stage.time / stage.endTime;
 
@@ -497,7 +501,7 @@ function render() {
   } else if (!stage.pause) {
     effect.uniforms['angle'].value = stage.time * dt;
     effect.uniforms['amount'].value += 0.002 * dt * Math.sin(stage.time * field.circleField.scale.x);
-    effect.uniforms['dimm'].value -= 0.5 * dt;
+    //effect.uniforms['dimm'].value -= 0.5 * dt;
     field.circleField.scale.x = Math.sin(stage.time * 3) * 0.1 + 1.0 + now - stage.finishTime;
     field.circleField.scale.y = Math.cos(stage.time * 3 + Math.PI / 4) * 0.1 + 1.0 + now - stage.finishTime;
   }
@@ -535,6 +539,8 @@ function updateState() {
     field.circleField.material.color.setHex(0xFFFFFFF);
     stage.state = 3;
     stage.endGame = true;
+    setText(textEnd);
+    text.text = "Score: " + Math.ceil(stage.score);
     effect.uniforms['dimm'].value = 1.0;
     field.circleField.scale.x = 0.1;
     field.circleField.scale.y = 0.1;
