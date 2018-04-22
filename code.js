@@ -220,7 +220,7 @@ function resetState() {
   field.circleField.material.color.setHex(stage.color);
 
   effect.uniforms['dimm'].value = 1.0;
-  effect.uniforms['amount'].value = 0.002;
+  effect.uniforms['amount'].value = 0.0;
 
   player.gun.scale.x = 1.0;
   player.gun.scale.y = 1.0;
@@ -458,6 +458,7 @@ function render() {
     updateState();
   }
   if (!stage.endGame && !stage.pause) {
+    effect.uniforms['amount'].value = 0.002 * stage.threat / 40;
     textNeedUpdate = true;
     text.text = Math.ceil(stage.threat);
 
@@ -482,7 +483,7 @@ function render() {
     }
 
     if (stage.threat > 0) {
-      stage.threat = Math.max(0.0, stage.threat - stage.threatDecay * dt * (stage.threat / 10))
+      stage.threat = Math.max(0.0, stage.threat - stage.threatDecay * dt * (stage.threat / 5))
     }
 
     resetSectorsState();
