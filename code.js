@@ -94,6 +94,8 @@ function init() {
 
   setupSounds();
 
+  initParticles();
+
   setupPayer();
   setupDanger();
   setupPlayingField();
@@ -105,13 +107,18 @@ function init() {
   clearControls();
 
   initFont();
-  initParticles();
+
+
 }
 
 function initParticles() {
   particles.system = new THREE.GPUParticleSystem({
-    maxParticles: 20000
+    maxParticles: 100000
   });
+  particles.rate = 100;
+  particles.timeScale = 1.0;
+  particles.system.position.z = 0;
+  particles.time = 0;
   scene.add(particles.system);
 }
 
@@ -542,6 +549,27 @@ function updateTrialsState() {
   }
 }
 
+var firstRun = true;
+function updateParticles(dt, time) {
+  var delta = dt * particles.timeScale;
+  options = {
+		position: new THREE.Vector3(),
+		velocity: new THREE.Vector3(),
+		velocityRandomness: -1,
+		colorRandomness: 0,
+		turbulence: 0.1,
+		lifetime: 100000,
+		size: 10,
+		sizeRandomness: 1
+	};
+  for (var i = 0; i < particles.rate * delta; i++) {
+    //options.velocity = new THREE.Vector3();
+    particles.system.spawnParticle(options);
+  }
+  particles.time = stage.threat * 100;
+  particles.system.update(time * 10);
+}
+
 function render() {
   //console.log("stage.timeMultiplier: " + stage.timeMultiplier);
   //console.log("stage.threat: " + stage.threat);
@@ -609,6 +637,7 @@ function render() {
     decayDanger(dt, now);
     collideDangerWithPlayer(dt, now);
     calculateFrameScore(dt);
+    updateParticles(dt, stage.time);
   } else if (!stage.pause) {
     effect.uniforms['angle'].value = stage.time * dt;
     effect.uniforms['amount'].value += 0.002 * dt * Math.sin(stage.time * field.circleField.scale.x);
