@@ -16,10 +16,10 @@ var dangerBaseOpacity = 0.05;
 
 var textUpdateTimer = 0.0;
 var textThreshold = 0.026;
-var textNeedUpdate = true;
+var textNeedsUpdate = true;
 var textPause = {};
-var surfingThreshold = 0.5;
-textPause.text = "Reignite dying star\n\nClick the star to increase\nits gravitational pull\n\nThis will rise threat level\nBut will make progress faster\nAnd your score higher\n\nUse 'A' and 'D' or arrows to evade\nenergy bursts\n\n\nPress 'Space' to continue";
+var surfingThreshold = 0.8;
+textPause.text = "Reignite dying star\n\nClick the star to increase\nits gravitational pull\n\nThis will destabilize the star\nBut will make progress faster\nAnd your score higher\n\nUse 'A' and 'D' or arrows to evade\nenergy bursts\nSurf green energy bursts\nfor higher score\n\nPress 'Space' to continue";
 textPause.size = 25;
 
 var trialShiftTimer = 0.0;
@@ -47,6 +47,8 @@ var stage = {};
 var text = {};
 
 var oldTime = Date.now();
+
+var audio = {};
 
 init();
 animate();
@@ -89,6 +91,8 @@ function init() {
 
   stage.sectorCount = 240;
 
+  setupSounds();
+
   setupPayer();
   setupDanger();
   setupPlayingField();
@@ -100,6 +104,17 @@ function init() {
   clearControls();
 
   initFont();
+}
+
+function setupSounds() {
+  var audioLoader = new THREE.AudioLoader();
+  var listener = new THREE.AudioListener();
+  audio.click = new THREE.Audio(listener);
+  audioLoader.load('effects/click.wav', function (buffer) {
+    audio.click.setBuffer(buffer);
+    audio.click.setLoop(false);
+    audio.click.setVolume(0.1);
+  });
 }
 
 function createText() {
@@ -140,8 +155,8 @@ function createText() {
 }
 
 function refreshText() {
-  if (text.font !== null && textNeedUpdate) {
-    textNeedUpdate = false;
+  if (text.font !== null && textNeedsUpdate) {
+    textNeedsUpdate = false;
     scene.remove(text.mesh);
     scene.remove(text.meshBlack);
     scene.remove(text.meshBlack2);
@@ -153,7 +168,7 @@ function refreshText() {
 }
 
 function setText(textTarget) {
-  textNeedUpdate = true;
+  textNeedsUpdate = true;
   text.size = textTarget.size;
   text.text = textTarget.text;
 }
@@ -227,6 +242,8 @@ function resetState() {
   stage.score = 0;
   stage.playerInSpike = 0;
 
+  stage.direction = getRandomInt(0, 1);
+
   field.circleField.material.color.setHex(stage.color);
 
   effect.uniforms['dimm'].value = 1.0;
@@ -262,7 +279,7 @@ function onDocumentKeyDown(event) {
     if (stage.endGame) {
       stage.endGame = false;
       text.text = "";
-      textNeedUpdate = true;
+      textNeedsUpdate = true;
       textUpdateTimer = 100;
       resetState();
     }
@@ -362,28 +379,24 @@ function generateTrial() {
   trial.deadZone = getRandomFloat(0, 2.0 * Math.PI);
   trial.deadZoneAngleDiff = getRandomFloat(Math.PI / 32, Math.PI / 8);
   trial.speed = getRandomFloat(Math.PI / 10, Math.PI / 6);
-  trial.direction = getRandomInt(0, 1);
+  trial.direction = stage.direction;
   danger.trials.push(trial);
 }
 
 function runTrial(trial, dt, now) {
   if (trial.type == 1) {
     if (trial.direction == 1) {
-      trial.deadZone += trial.speed * dt * (stage.threat / 20.0 + 1);
+      trial.deadZone += trial.speed * dt * (stage.threat / 15.0 + 1);
     } else {
-      trial.deadZone -= trial.speed * dt * (stage.threat / 20.0 + 1);
+      trial.deadZone -= trial.speed * dt * (stage.threat / 15.0 + 1);
     }
     for (i = 0; i < stage.sectorCount; i++) {
-      var theatAngleDiff = trial.deadZoneAngleDiff / (stage.threat / 80.0 + 0.8)
+      var theatAngleDiff = trial.deadZoneAngleDiff * (stage.threat / 40.0 + 0.8)
       if (collideAngleRanges(danger.properties[i].from, danger.properties[i].to,
         trial.deadZone - theatAngleDiff, trial.deadZone + theatAngleDiff)) {
         trial.timeToAppear -= dt;
         trial.timeToAppear = Math.max(0, trial.timeToAppear);
-        if (trial.timeToAppear == 0) {
-          danger.shapes[i].material.opacity += 4 * dt * (stage.threat / 20 + 1);
-        } else {
-          danger.shapes[i].material.opacity += 4 * dt;
-        }
+        danger.shapes[i].material.opacity += 4 * dt * (stage.threat / 80 + 1);
         danger.shapes[i].material.opacity = Math.min(1.0, danger.shapes[i].material.opacity);
         danger.properties[i].touchedByTrialsCount += 1;
       }
@@ -396,8 +409,7 @@ function collideDangerWithPlayer(dt, now) {
   for (i = 0; i < stage.sectorCount; i++) {
     if (isAngleBetween(danger.properties[i].from, danger.properties[i].to, player.angle)) {
       stage.playerInSpike = Math.max(stage.playerInSpike, danger.shapes[i].material.opacity);
-      //console.log(stage.playerInSpike);
-      if (stage.playerInSpike < surfingThreshold || danger.properties[i].touchedByTrialsCount > 1) {
+      if (stage.playerInSpike < surfingThreshold && stage.playerInSpike > 0.05 || danger.properties[i].touchedByTrialsCount > 1) {
         stage.playerInSpike = surfingThreshold - 0.1;
         danger.shapes[i].material.color.setHex(0x00AA00);
       } else {
@@ -421,7 +433,7 @@ function collideDangerWithPlayer(dt, now) {
 function calculateFrameScore(dt) {
   var dangerSurfingBonus = 100;
   var fontSizeOffset = 0;
-  if (stage.playerInSpike < surfingThreshold && stage.playerInSpike > 0.03) {
+  if (stage.playerInSpike < surfingThreshold && stage.playerInSpike > 0.05) {
     stage.frameScore += dangerSurfingBonus;
     fontSizeOffset = 10;
   }
@@ -429,8 +441,8 @@ function calculateFrameScore(dt) {
     fontSizeOffset = -20;
     stage.frameScore /= 2;
   } else {
-    stage.frameScore += 5;
-    stage.frameScore *= stage.threat / 20;
+    stage.frameScore += 1;
+    stage.frameScore *= (stage.threat / 20) + 0.5;
   }
   text.size = textScore.size + stage.threat + fontSizeOffset;
   stage.score += stage.frameScore * dt;
@@ -507,6 +519,7 @@ function updateTrialsState() {
 function render() {
   //console.log("stage.timeMultiplier: " + stage.timeMultiplier);
   //console.log("stage.threat: " + stage.threat);
+  var shouldPauseAfterRender = false;
   var now = getTime();
   var dt = now - oldTime;
   if (dt > 1 || dt < -1) {
@@ -516,19 +529,22 @@ function render() {
   textUpdateTimer += dt;
   if (textUpdateTimer > textThreshold) {
     textUpdateTimer = 0;
-    refreshText();    
+    refreshText();
   }
 
   oldTime = now;
 
   if (!stage.pause) {
+    if (stage.time == 0.0) {
+      shouldPauseAfterRender = true;
+    }
     stage.time += dt * Math.min(Math.max(1.0, stage.timeMultiplier), 5.0);
     updateState();
   }
   if (!stage.endGame && !stage.pause) {
     trialShiftTimer += dt;
     effect.uniforms['amount'].value = 0.002 * stage.threat / 40;
-    textNeedUpdate = true;
+    textNeedsUpdate = true;
     text.text = Math.ceil(stage.score);
 
     stage.progress = stage.time / stage.endTime;
@@ -572,6 +588,10 @@ function render() {
     field.circleField.scale.x = Math.sin(stage.time * 3) * 0.1 + 1.0 + now - stage.finishTime;
     field.circleField.scale.y = Math.cos(stage.time * 3 + Math.PI / 4) * 0.1 + 1.0 + now - stage.finishTime;
   }
+  if (shouldPauseAfterRender) {
+    stage.pause = true;
+    setText(textPause);
+  }
   composer.render();
 }
 
@@ -588,7 +608,8 @@ function updateClicks() {
       //console.log("click inside");
       stage.timeMultiplier += stage.timePerClick;
       stage.threat += stage.threatPerClick;
-      stage.frameScore += 10;
+      stage.score += stage.threat / 10 + 1;
+      audio.click.play();
     } else {
       //console.log("click outside");
       //stage.timeMultiplier -= 1.2 * stage.timePerClick;
