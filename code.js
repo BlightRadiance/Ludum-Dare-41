@@ -18,8 +18,8 @@ var textUpdateTimer = 0.0;
 var textThreshold = 0.13;
 var textNeedUpdate = true;
 var textPause = {};
-textPause.text = "Reignite dying star\n\nFire at the star by pressing on it\nThis will rise threat level\nBut will make progress faster\nAnd your score higher\n\n Press Space to continue";
-textPause.size = 30;
+textPause.text = "Reignite dying star\n\nClick the star to increase\nits gravitational pull\n\nThis will rise threat level\nBut will make progress faster\nAnd your score higher\n\nUse 'A' and 'D' or arrows to evade\n\n\nPress 'Space' to continue";
+textPause.size = 25;
 
 var textScore = {};
 textScore.text = "";
@@ -255,6 +255,9 @@ function onDocumentKeyDown(event) {
     }
     if (stage.endGame) {
       stage.endGame = false;
+      text.text = "";
+      textNeedUpdate = true;
+      textUpdateTimer = 100;
       resetState();
     }
   } else if (event.key == "ArrowLeft" || event.code == "KeyA") {
