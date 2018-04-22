@@ -52,12 +52,12 @@ var text = {};
 var oldTime = Date.now();
 
 var audio = {};
+var particles = {};
 
 init();
 animate();
 
 var effect;
-var fxaa;
 
 function init() {
   camera = camera = new THREE.OrthographicCamera(-frustumHalfSize * aspect, frustumHalfSize * aspect,
@@ -76,8 +76,6 @@ function init() {
   effect.uniforms['amount'].value = 0.002;
   effect.renderToScreen = true;
   composer.addPass(effect);
-  fxaa = new THREE.ShaderPass(THREE.FXAAShader);
-  composer.addPass(fxaa);
 
 
   document.body.appendChild(renderer.domElement);
@@ -107,6 +105,14 @@ function init() {
   clearControls();
 
   initFont();
+  initParticles();
+}
+
+function initParticles() {
+  particles.system = new THREE.GPUParticleSystem({
+    maxParticles: 20000
+  });
+  scene.add(particles.system);
 }
 
 function setupSounds() {
@@ -737,8 +743,6 @@ function onWindowResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
-
-  fxaa.uniforms['resolution'].value = new THREE.Vector2(window.innerWidth, window.innerHeight);
 
   updateScreenSpacePointerPosition();
 }
