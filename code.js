@@ -15,10 +15,10 @@ var frustumHalfSize = frustumSize / 2.0;
 var dangerBaseOpacity = 0.05;
 
 var textUpdateTimer = 0.0;
-var textThreshold = 0.13;
+var textThreshold = 0.026;
 var textNeedUpdate = true;
 var textPause = {};
-textPause.text = "Reignite dying star\n\nClick the star to increase\nits gravitational pull\n\nThis will rise threat level\nBut will make progress faster\nAnd your score higher\n\nUse 'A' and 'D' or arrows to evade\n\n\nPress 'Space' to continue";
+textPause.text = "Reignite dying star\n\nClick the star to increase\nits gravitational pull\n\nThis will rise threat level\nBut will make progress faster\nAnd your score higher\n\nUse 'A' and 'D' or arrows to evade\nenergy bursts\n\n\nPress 'Space' to continue";
 textPause.size = 25;
 
 var textScore = {};
@@ -205,7 +205,7 @@ function resetState() {
   stage.endTime = 300;
   stage.state = 0;
   stage.oneTime = 0.7;
-  stage.twoTime = 0.95;
+  stage.twoTime = 0.975;
   stage.color = 0xFFFFFF;
   stage.timeMultiplier = 0;
   stage.timeMultiplierDecayBase = 2;
@@ -220,6 +220,7 @@ function resetState() {
   stage.startTime = getTime();
   stage.finishTime = 0;
   stage.score = 0;
+  stage.playerInSpike = 0;
 
   field.circleField.material.color.setHex(stage.color);
 
@@ -385,16 +386,35 @@ function runTrial(trial, dt, now) {
 }
 
 function collideDangerWithPlayer(dt, now) {
+  stage.playerInSpike = 0;
   for (i = 0; i < stage.sectorCount; i++) {
     if (danger.properties[i].touchedByTrialsCount > 1) {
       danger.shapes[i].material.opacity -= 8 * dt;
     }
     if (isAngleBetween(danger.properties[i].from, danger.properties[i].to, player.angle)) {
       danger.shapes[i].material.color.setHex(0xFF0000);
+      stage.playerInSpike = Math.max(stage.playerInSpike, danger.shapes[i].material.opacity);
     } else {
       danger.shapes[i].material.color.setHex(0xFFFFFF);
     }
   }
+}
+
+function calculateFrameScore(dt) {
+  var farmeScore = 0;
+  var dangerSurfingBonus = 50;
+  var fontSizeOffset = 0;
+  if (stage.playerInSpike < 0.3 && stage.playerInSpike > 0.1) {
+    farmeScore += dangerSurfingBonus;
+    fontSizeOffset = 10;
+  }
+  if (stage.playerInSpike >= 0.3) {
+    fontSizeOffset = -20;
+    farmeScore /= 2;
+  }
+  farmeScore += stage.threat;
+  text.size = textScore.size + stage.threat + fontSizeOffset;
+  stage.score += farmeScore * dt;
 }
 
 function decayDanger(dt, now) {
@@ -518,6 +538,7 @@ function render() {
     }
     decayDanger(dt, now);
     collideDangerWithPlayer(dt, now);
+    calculateFrameScore(dt);
   } else if (!stage.pause) {
     effect.uniforms['angle'].value = stage.time * dt;
     effect.uniforms['amount'].value += 0.002 * dt * Math.sin(stage.time * field.circleField.scale.x);
@@ -541,6 +562,7 @@ function updateClicks() {
       //console.log("click inside");
       stage.timeMultiplier += stage.timePerClick;
       stage.threat += stage.threatPerClick;
+      stage.score += 10;
     } else {
       //console.log("click outside");
       //stage.timeMultiplier -= 1.2 * stage.timePerClick;
