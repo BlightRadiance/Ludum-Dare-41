@@ -18,8 +18,12 @@ var textUpdateTimer = 0.0;
 var textThreshold = 0.026;
 var textNeedUpdate = true;
 var textPause = {};
+var surfingThreshold = 0.5;
 textPause.text = "Reignite dying star\n\nClick the star to increase\nits gravitational pull\n\nThis will rise threat level\nBut will make progress faster\nAnd your score higher\n\nUse 'A' and 'D' or arrows to evade\nenergy bursts\n\n\nPress 'Space' to continue";
 textPause.size = 25;
+
+var trialShiftTimer = 0.0;
+var trialShiftThreshold = 5;
 
 var textScore = {};
 textScore.text = "";
@@ -356,8 +360,8 @@ function generateTrial() {
   trial.type = getRandomInt(1, 1);
   trial.timeToAppear = getRandomInt(3, 10);
   trial.deadZone = getRandomFloat(0, 2.0 * Math.PI);
-  trial.deadZoneAngleDiff = getRandomFloat(Math.PI / 32, Math.PI / 4);
-  trial.speed = getRandomFloat(Math.PI / 20, Math.PI / 10);
+  trial.deadZoneAngleDiff = getRandomFloat(Math.PI / 32, Math.PI / 8);
+  trial.speed = getRandomFloat(Math.PI / 10, Math.PI / 6);
   trial.direction = getRandomInt(0, 1);
   danger.trials.push(trial);
 }
@@ -365,9 +369,9 @@ function generateTrial() {
 function runTrial(trial, dt, now) {
   if (trial.type == 1) {
     if (trial.direction == 1) {
-      trial.deadZone += trial.speed * dt * (stage.threat / 40.0 + 1);
+      trial.deadZone += trial.speed * dt * (stage.threat / 20.0 + 1);
     } else {
-      trial.deadZone -= trial.speed * dt * (stage.threat / 40.0 + 1);
+      trial.deadZone -= trial.speed * dt * (stage.threat / 20.0 + 1);
     }
     for (i = 0; i < stage.sectorCount; i++) {
       var theatAngleDiff = trial.deadZoneAngleDiff / (stage.threat / 80.0 + 0.8)
@@ -376,7 +380,7 @@ function runTrial(trial, dt, now) {
         trial.timeToAppear -= dt;
         trial.timeToAppear = Math.max(0, trial.timeToAppear);
         if (trial.timeToAppear == 0) {
-          danger.shapes[i].material.opacity += 4 * dt;
+          danger.shapes[i].material.opacity += 4 * dt * (stage.threat / 20 + 1);
         } else {
           danger.shapes[i].material.opacity += 4 * dt;
         }
@@ -390,19 +394,26 @@ function runTrial(trial, dt, now) {
 function collideDangerWithPlayer(dt, now) {
   stage.playerInSpike = 0;
   for (i = 0; i < stage.sectorCount; i++) {
-    if (danger.properties[i].touchedByTrialsCount > 1) {
-      danger.shapes[i].material.opacity -= 8 * dt;
-    }
     if (isAngleBetween(danger.properties[i].from, danger.properties[i].to, player.angle)) {
       stage.playerInSpike = Math.max(stage.playerInSpike, danger.shapes[i].material.opacity);
       //console.log(stage.playerInSpike);
-      if (stage.playerInSpike < 0.5) {
+      if (stage.playerInSpike < surfingThreshold || danger.properties[i].touchedByTrialsCount > 1) {
+        stage.playerInSpike = surfingThreshold - 0.1;
         danger.shapes[i].material.color.setHex(0x00AA00);
       } else {
         danger.shapes[i].material.color.setHex(0xAA0000);
       }
     } else {
-      danger.shapes[i].material.color.setHex(0xFFFFFF);
+      if (danger.properties[i].touchedByTrialsCount > 1) {
+        danger.shapes[i].material.color.setHex(0x00AA00);
+        danger.shapes[i].material.opacity -= 8 * dt;
+      } else {
+        if (danger.shapes[i].material.opacity < surfingThreshold) {
+          danger.shapes[i].material.color.setHex(0x00AA00);
+        } else {
+          danger.shapes[i].material.color.setHex(0xFFFFFF);
+        }
+      }
     }
   }
 }
@@ -410,16 +421,16 @@ function collideDangerWithPlayer(dt, now) {
 function calculateFrameScore(dt) {
   var dangerSurfingBonus = 100;
   var fontSizeOffset = 0;
-  if (stage.playerInSpike < 0.5 && stage.playerInSpike > 0.03) {
+  if (stage.playerInSpike < surfingThreshold && stage.playerInSpike > 0.03) {
     stage.frameScore += dangerSurfingBonus;
     fontSizeOffset = 10;
   }
-  if (stage.playerInSpike >= 0.5) {
+  if (stage.playerInSpike >= surfingThreshold) {
     fontSizeOffset = -20;
     stage.frameScore /= 2;
   } else {
     stage.frameScore += 5;
-    stage.frameScore *= stage.threat / 10;
+    stage.frameScore *= stage.threat / 20;
   }
   text.size = textScore.size + stage.threat + fontSizeOffset;
   stage.score += stage.frameScore * dt;
@@ -479,7 +490,12 @@ function getTime() {
 }
 
 function updateTrialsState() {
-  var targetTrailCount = Math.ceil(stage.threat / 10) + 1;
+  if (trialShiftTimer > trialShiftThreshold) {
+    trialShiftTimer = 0.0;
+    danger.trials.shift();
+  }
+
+  var targetTrailCount = Math.ceil(stage.threat / 20) + 1;
   //console.log(targetTrailCount);
   if (targetTrailCount > danger.trials.length) {
     generateTrial();
@@ -510,6 +526,7 @@ function render() {
     updateState();
   }
   if (!stage.endGame && !stage.pause) {
+    trialShiftTimer += dt;
     effect.uniforms['amount'].value = 0.002 * stage.threat / 40;
     textNeedUpdate = true;
     text.text = Math.ceil(stage.score);
@@ -601,8 +618,8 @@ function updateState() {
 }
 
 function updatePlayerPosition(dt, gameTime, gloablTime) {
-  var maxV = 2 * Math.PI;
-  var maxA = Math.PI;
+  var maxV = Math.PI;
+  var maxA = Math.PI / 2;
 
   // Calculate velocity
   var slowDownFactor = 1 + dt * 10;
