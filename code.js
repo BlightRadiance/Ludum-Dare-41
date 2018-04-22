@@ -83,7 +83,7 @@ function init() {
   document.addEventListener("click", onDocumentClick, false);
   document.addEventListener("touchstart", onDocumentClick, false);
 
-  stage.sectorCount = 120;
+  stage.sectorCount = 240;
 
   setupPayer();
   setupDanger();
@@ -219,6 +219,7 @@ function resetState() {
 
   stage.startTime = getTime();
   stage.finishTime = 0;
+  stage.frameScore = 0;
   stage.score = 0;
   stage.playerInSpike = 0;
 
@@ -369,8 +370,9 @@ function runTrial(trial, dt, now) {
       trial.deadZone -= trial.speed * dt * (stage.threat / 10.0 + 1);
     }
     for (i = 0; i < stage.sectorCount; i++) {
+      var theatAngleDiff = trial.deadZoneAngleDiff / (stage.threat / 80.0 + 0.8)
       if (collideAngleRanges(danger.properties[i].from, danger.properties[i].to,
-        trial.deadZone - trial.deadZoneAngleDiff, trial.deadZone + trial.deadZoneAngleDiff)) {
+        trial.deadZone - theatAngleDiff, trial.deadZone + theatAngleDiff)) {
         trial.timeToAppear -= dt;
         trial.timeToAppear = Math.max(0, trial.timeToAppear);
         if (trial.timeToAppear == 0) {
@@ -392,8 +394,13 @@ function collideDangerWithPlayer(dt, now) {
       danger.shapes[i].material.opacity -= 8 * dt;
     }
     if (isAngleBetween(danger.properties[i].from, danger.properties[i].to, player.angle)) {
-      danger.shapes[i].material.color.setHex(0xFF0000);
       stage.playerInSpike = Math.max(stage.playerInSpike, danger.shapes[i].material.opacity);
+      console.log(stage.playerInSpike);
+      if (stage.playerInSpike < 0.5) {
+        danger.shapes[i].material.color.setHex(0x00AA00);
+      } else {
+        danger.shapes[i].material.color.setHex(0xAA0000);
+      }
     } else {
       danger.shapes[i].material.color.setHex(0xFFFFFF);
     }
@@ -401,20 +408,21 @@ function collideDangerWithPlayer(dt, now) {
 }
 
 function calculateFrameScore(dt) {
-  var farmeScore = 0;
-  var dangerSurfingBonus = 50;
+  var dangerSurfingBonus = 100;
   var fontSizeOffset = 0;
-  if (stage.playerInSpike < 0.3 && stage.playerInSpike > 0.1) {
-    farmeScore += dangerSurfingBonus;
+  if (stage.playerInSpike < 0.5 && stage.playerInSpike > 0.03) {
+    stage.frameScore += dangerSurfingBonus;
     fontSizeOffset = 10;
   }
-  if (stage.playerInSpike >= 0.3) {
+  if (stage.playerInSpike >= 0.5) {
     fontSizeOffset = -20;
-    farmeScore /= 2;
+    stage.frameScore /= 2;
+  } else {
+    stage.frameScore += 50;
+    stage.frameScore *= stage.threat / 10;
   }
-  farmeScore += stage.threat;
   text.size = textScore.size + stage.threat + fontSizeOffset;
-  stage.score += farmeScore * dt;
+  stage.score += stage.frameScore * dt;
 }
 
 function decayDanger(dt, now) {
@@ -488,6 +496,7 @@ function render() {
   if (dt > 1 || dt < -1) {
     dt = 0.013;
   }
+  stage.frameScore = 0.0;
   textUpdateTimer += dt;
   if (textUpdateTimer > textThreshold) {
     textUpdateTimer = 0;
@@ -562,7 +571,7 @@ function updateClicks() {
       //console.log("click inside");
       stage.timeMultiplier += stage.timePerClick;
       stage.threat += stage.threatPerClick;
-      stage.score += 10;
+      stage.frameScore += 10;
     } else {
       //console.log("click outside");
       //stage.timeMultiplier -= 1.2 * stage.timePerClick;
