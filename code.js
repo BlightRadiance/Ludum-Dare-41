@@ -85,9 +85,9 @@ function init() {
 
   stage.sectorCount = 120;
 
+  setupPayer();
   setupDanger();
   setupPlayingField();
-  setupPayer();
 
   resetState();
 
@@ -202,7 +202,7 @@ function resetState() {
   stage.pause = false;
   stage.endGame = false;
   stage.progress = 0.0;
-  stage.endTime = 10;
+  stage.endTime = 300;
   stage.state = 0;
   stage.oneTime = 0.7;
   stage.twoTime = 0.95;
@@ -219,7 +219,7 @@ function resetState() {
 
   stage.startTime = getTime();
   stage.finishTime = 0;
-  stage.score = 1337;
+  stage.score = 0;
 
   field.circleField.material.color.setHex(stage.color);
 
@@ -354,8 +354,8 @@ function generateTrial() {
   trial.type = getRandomInt(1, 1);
   trial.timeToAppear = getRandomInt(3, 10);
   trial.deadZone = getRandomFloat(0, 2.0 * Math.PI);
-  trial.deadZoneAngleDiff = getRandomFloat(Math.PI / 16, Math.PI / 8);
-  trial.speed = getRandomFloat(Math.PI / 8, Math.PI / 2);
+  trial.deadZoneAngleDiff = getRandomFloat(Math.PI / 32, Math.PI / 4);
+  trial.speed = getRandomFloat(Math.PI / 20, Math.PI / 10);
   trial.direction = getRandomInt(0, 1);
   danger.trials.push(trial);
 }
@@ -363,14 +363,20 @@ function generateTrial() {
 function runTrial(trial, dt, now) {
   if (trial.type == 1) {
     if (trial.direction == 1) {
-      trial.deadZone += trial.speed * dt;
+      trial.deadZone += trial.speed * dt * (stage.threat / 10.0 + 1);
     } else {
-      trial.deadZone -= trial.speed * dt;
+      trial.deadZone -= trial.speed * dt * (stage.threat / 10.0 + 1);
     }
     for (i = 0; i < stage.sectorCount; i++) {
       if (collideAngleRanges(danger.properties[i].from, danger.properties[i].to,
         trial.deadZone - trial.deadZoneAngleDiff, trial.deadZone + trial.deadZoneAngleDiff)) {
-        danger.shapes[i].material.opacity += 4 * dt;
+        trial.timeToAppear -= dt;
+        trial.timeToAppear = Math.max(0, trial.timeToAppear);
+        if (trial.timeToAppear == 0) {
+          danger.shapes[i].material.opacity += 4 * dt;
+        } else {
+          danger.shapes[i].material.opacity += 4 * dt;
+        }
         danger.shapes[i].material.opacity = Math.min(1.0, danger.shapes[i].material.opacity);
         danger.properties[i].touchedByTrialsCount += 1;
       }
@@ -444,6 +450,16 @@ function getTime() {
   return Date.now() / 1000;
 }
 
+function updateTrialsState() {
+  var targetTrailCount = Math.ceil(stage.threat / 10) + 1;
+  //console.log(targetTrailCount);
+  if (targetTrailCount > danger.trials.length) {
+    generateTrial();
+  } else if (targetTrailCount < danger.trials.length) {
+    danger.trials.pop();
+  }
+}
+
 function render() {
   //console.log("stage.timeMultiplier: " + stage.timeMultiplier);
   //console.log("stage.threat: " + stage.threat);
@@ -494,6 +510,7 @@ function render() {
     }
 
     resetSectorsState();
+    updateTrialsState();
     //trials
     var i;
     for (i = 0; i < danger.trials.length; i++) {
