@@ -25,6 +25,9 @@ textPause.size = 25;
 var trialShiftTimer = 0.0;
 var trialShiftThreshold = 5;
 
+var directionSwapTimer = 0.0;
+var directionSwapThreshold = 20;
+
 var textScore = {};
 textScore.text = "";
 textScore.size = 40;
@@ -234,7 +237,7 @@ function resetState() {
   stage.threat = 0;
   stage.threatDecayBase = 1;
   stage.threatDecay = 1;
-  stage.threatPerClick = 1.5;
+  stage.threatPerClick = 1.65;
 
   stage.startTime = getTime();
   stage.finishTime = 0;
@@ -502,6 +505,16 @@ function getTime() {
 }
 
 function updateTrialsState() {
+  if (directionSwapTimer > directionSwapThreshold) {
+    directionSwapThreshold = getRandomFloat(20, 40);
+    directionSwapTimer = 0.0;
+    if (stage.direction == 1) {
+      stage.direction = 0;
+    } else {
+      stage.direction = 1;
+    }
+  }
+
   if (trialShiftTimer > trialShiftThreshold) {
     trialShiftTimer = 0.0;
     danger.trials.shift();
@@ -542,6 +555,7 @@ function render() {
     updateState();
   }
   if (!stage.endGame && !stage.pause) {
+    directionSwapTimer += dt;
     trialShiftTimer += dt;
     effect.uniforms['amount'].value = 0.002 * stage.threat / 40;
     textNeedsUpdate = true;
@@ -568,7 +582,8 @@ function render() {
     }
 
     if (stage.threat > 0) {
-      stage.threat = Math.max(0.0, stage.threat - stage.threatDecay * dt * (stage.threat / 5))
+      stage.threat = Math.max(0.0, stage.threat - stage.threatDecay * dt * (stage.threat / 5));
+      //console.log(stage.threat);
     }
 
     resetSectorsState();
@@ -608,6 +623,7 @@ function updateClicks() {
       //console.log("click inside");
       stage.timeMultiplier += stage.timePerClick;
       stage.threat += stage.threatPerClick;
+      stage.threat = Math.min(stage.threat, 70);
       if (stage.playerInSpike < surfingThreshold && stage.playerInSpike > 0.05) {
         stage.score += stage.threat * 3;
       } else {
@@ -643,8 +659,8 @@ function updateState() {
 }
 
 function updatePlayerPosition(dt, gameTime, gloablTime) {
-  var maxV = Math.PI;
-  var maxA = Math.PI / 2;
+  var maxV = Math.PI / 2 * 1.2;
+  var maxA = Math.PI / 4;
 
   // Calculate velocity
   var slowDownFactor = 1 + dt * 10;
