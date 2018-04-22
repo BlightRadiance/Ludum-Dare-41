@@ -26,8 +26,8 @@ textScore.text = "";
 textScore.size = 40;
 
 var textEnd = {};
-textPause.text = "";
-textPause.size = 50;
+textEnd.text = "";
+textEnd.size = 100;
 
 var r, g, b, y;
 
