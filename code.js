@@ -92,15 +92,14 @@ function createText() {
   textGeo.computeBoundingBox();
   textGeo.computeVertexNormals();
   var centerOffsetX = - 0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
-  var centerOffsetY = - 0.5 * (textGeo.boundingBox.max.y - textGeo.boundingBox.min.y);
   text.mesh = new THREE.Mesh(textGeo, text.material);
   text.mesh.position.x = centerOffsetX;
-  text.mesh.position.y = centerOffsetY;
+  text.mesh.position.y = 0;
   text.mesh.position.z = 12;
 
   text.meshBlack = new THREE.Mesh(textGeo, text.materialBlack);
   text.meshBlack.position.x = centerOffsetX;
-  text.meshBlack.position.y = centerOffsetY;
+  text.meshBlack.position.y = 0;
   text.meshBlack.position.z = 10;
   text.meshBlack.position.x += 5;
   scene.add(text.meshBlack);
@@ -111,12 +110,35 @@ function refreshText() {
   if (text.font !== null) {
     scene.remove(text.mesh);
     scene.remove(text.meshBlack);
+    doDispose(text.mesh);
+    doDispose(text.meshBlack);
     createText();
   }
 }
 
+function doDispose(obj) {
+  if (obj !== null) {
+    for (var i = 0; i < obj.children.length; i++) {
+      doDispose(obj.children[i]);
+    }
+    if (obj.geometry) {
+      obj.geometry.dispose();
+      obj.geometry = undefined;
+    }
+    if (obj.material) {
+      if (obj.material.map) {
+        obj.material.map.dispose();
+        obj.material.map = undefined;
+      }
+      obj.material.dispose();
+      obj.material = undefined;
+    }
+  }
+  obj = undefined;
+};
+
 function initFont() {
-  text.text = 'three.js';
+  text.text = 'Press SPACE to begin\ndsf';
   text.height = 100;
   text.size = 50;
   text.hover = 0;
